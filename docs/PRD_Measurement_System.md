@@ -90,9 +90,130 @@ Xây dựng hệ thống kiểm tra chất lượng tự động (Automated Qual
 
 ---
 
-## 3. Yêu Cầu Chức Năng
+## 3. User Stories & Use Cases
 
-### 3.1 Chức Năng Chính
+### 3.1 User Stories
+
+| ID | Role | Story | Priority |
+|----|------|-------|----------|
+| US-01 | Operator | Tôi muốn xem hình ảnh live từ camera để giám sát quá trình đo | High |
+| US-02 | Operator | Tôi muốn hệ thống tự động phát hiện và đo tất cả lỗ tròn mà không cần cấu hình vị trí | High |
+| US-03 | Operator | Tôi muốn thấy kết quả đo (đường kính) hiển thị trực tiếp trên hình ảnh | High |
+| US-04 | Operator | Tôi muốn biết ngay sản phẩm OK hay NG qua màu sắc hiển thị | High |
+| US-05 | Operator | Tôi muốn kết nối/ngắt kết nối camera dễ dàng qua nút bấm | High |
+| US-06 | Technician | Tôi muốn điều chỉnh exposure time khi điều kiện ánh sáng thay đổi | Medium |
+| US-07 | Technician | Tôi muốn thay đổi dung sai đo cho từng loại sản phẩm khác nhau | Medium |
+| US-08 | Technician | Tôi muốn calibrate hệ thống với mẫu chuẩn | Medium |
+| US-09 | Engineer | Tôi muốn lưu/tải recipe cho các loại sản phẩm khác nhau | Medium |
+| US-10 | Engineer | Tôi muốn xem thống kê OK/NG theo thời gian | Low |
+| US-11 | Manager | Tôi muốn xuất báo cáo đo lường theo ca/ngày | Low |
+
+### 3.2 Use Cases
+
+#### UC-01: Kết Nối Camera
+```
+Actor: Operator
+Precondition: Camera đã được kết nối vật lý qua GigE
+Flow:
+  1. Operator nhấn nút "Refresh Devices"
+  2. Hệ thống quét và hiển thị danh sách camera có sẵn
+  3. Operator chọn camera từ dropdown
+  4. Operator nhấn nút "Connect"
+  5. Hệ thống kết nối và bắt đầu hiển thị live stream
+Postcondition: Camera connected, live stream hiển thị
+Exception:
+  - Không tìm thấy camera → Hiển thị thông báo lỗi
+  - Kết nối thất bại → Hiển thị chi tiết lỗi
+```
+
+#### UC-02: Tự Động Đo Lỗ Tròn
+```
+Actor: System (Automatic)
+Precondition: Camera connected, vật thể trong FOV
+Flow:
+  1. Trigger sensor phát hiện vật thể đi qua
+  2. Camera chụp ảnh
+  3. Hệ thống tự động phát hiện tất cả hình tròn
+  4. Hệ thống đo đường kính từng lỗ
+  5. Hệ thống so sánh với dung sai
+  6. Hệ thống hiển thị kết quả (vẽ edge, đường kính, label)
+  7. Hệ thống gửi tín hiệu OK/NG ra PLC
+Postcondition: Kết quả đo được hiển thị và ghi log
+```
+
+#### UC-03: Thay Đổi Dung Sai
+```
+Actor: Technician
+Precondition: Có quyền truy cập cài đặt
+Flow:
+  1. Technician mở panel "Tolerance Settings"
+  2. Technician nhập Nominal diameter (mm)
+  3. Technician nhập Tolerance ± (mm)
+  4. Technician bật "Enable OK/NG Check"
+  5. Hệ thống áp dụng dung sai mới ngay lập tức
+Postcondition: Dung sai mới được áp dụng
+```
+
+#### UC-04: Calibration
+```
+Actor: Technician
+Precondition: Có mẫu chuẩn với kích thước đã biết
+Flow:
+  1. Technician đặt mẫu chuẩn vào vùng FOV
+  2. Technician nhấn "Calibrate"
+  3. Hệ thống đo kích thước mẫu (pixels)
+  4. Technician nhập kích thước thực (mm)
+  5. Hệ thống tính toán tỷ lệ pixel/mm
+  6. Hệ thống lưu thông số calibration
+Postcondition: Hệ thống đã được calibrate
+```
+
+### 3.3 Sequence Diagram - Quy Trình Đo Tự Động
+
+```
+┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐
+│ Trigger │  │ Camera  │  │ Vision  │  │ Measure │  │ Display │  │   PLC   │
+│ Sensor  │  │         │  │ Process │  │ Engine  │  │   UI    │  │         │
+└────┬────┘  └────┬────┘  └────┬────┘  └────┬────┘  └────┬────┘  └────┬────┘
+     │            │            │            │            │            │
+     │ Detect     │            │            │            │            │
+     │ Object     │            │            │            │            │
+     │───────────>│            │            │            │            │
+     │            │ Trigger    │            │            │            │
+     │            │───────────>│            │            │            │
+     │            │            │ Grab Frame │            │            │
+     │            │<───────────│            │            │            │
+     │            │  Image     │            │            │            │
+     │            │───────────>│            │            │            │
+     │            │            │ Pre-process│            │            │
+     │            │            │───────────>│            │            │
+     │            │            │            │ Detect     │            │
+     │            │            │            │ Circles    │            │
+     │            │            │            │──────┐     │            │
+     │            │            │            │      │     │            │
+     │            │            │            │<─────┘     │            │
+     │            │            │            │ Measure    │            │
+     │            │            │            │ Diameter   │            │
+     │            │            │            │──────┐     │            │
+     │            │            │            │      │     │            │
+     │            │            │            │<─────┘     │            │
+     │            │            │            │ Results    │            │
+     │            │            │            │───────────>│            │
+     │            │            │            │            │ Draw       │
+     │            │            │            │            │ Overlay    │
+     │            │            │            │            │──────┐     │
+     │            │            │            │            │      │     │
+     │            │            │            │            │<─────┘     │
+     │            │            │            │ OK/NG      │            │
+     │            │            │            │────────────────────────>│
+     │            │            │            │            │            │
+```
+
+---
+
+## 4. Yêu Cầu Chức Năng
+
+### 4.1 Chức Năng Chính
 
 #### F01: Thu Nhận Hình Ảnh
 - **Mô tả**: Chụp ảnh chi tiết kim loại khi di chuyển qua vùng kiểm tra
@@ -142,7 +263,7 @@ Xây dựng hệ thống kiểm tra chất lượng tự động (Automated Qual
   - Lưu log kết quả đo
   - Lưu ảnh NG để truy vết
 
-### 3.2 Chức Năng Phụ Trợ
+### 4.2 Chức Năng Phụ Trợ
 
 #### F06: Calibration (Hiệu Chuẩn)
 - Calibration tỷ lệ pixel/mm sử dụng mẫu chuẩn
@@ -701,11 +822,11 @@ Với F/6.5 (mặc định):
 
 ---
 
-**Document Version:** 1.3
+**Document Version:** 2.0
 **Created Date:** 2025-12-26
 **Last Updated:** 2025-12-26
 **Author:** Claude AI Assistant
-**Status:** Draft - Auto Circle Detection
+**Status:** Ready for Review
 
 ---
 
@@ -717,3 +838,4 @@ Với F/6.5 (mặc định):
 | 1.1 | 2025-12-26 | Updated with confirmed HK-YC10-80H lens specifications from datasheet |
 | 1.2 | 2025-12-26 | Changed lighting mode to Continuous (non-strobe), added motion blur calculations |
 | 1.3 | 2025-12-26 | Added automatic circle detection algorithm, detailed processing pipeline |
+| 2.0 | 2025-12-26 | Added User Stories, Use Cases, Sequence Diagram - PRD Complete |
