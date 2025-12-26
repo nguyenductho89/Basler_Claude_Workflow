@@ -102,12 +102,24 @@ Xây dựng hệ thống kiểm tra chất lượng tự động (Automated Qual
   - Backlight sáng liên tục (Continuous Lighting)
   - Exposure time ngắn để tránh motion blur (khuyến nghị ≤50µs @10m/min)
 
-#### F02: Phát Hiện Biên Lỗ Tròn
-- **Mô tả**: Xác định biên cạnh (Edge) của lỗ tròn trên ảnh
+#### F02: Tự Động Phát Hiện Hình Tròn
+- **Mô tả**: Tự động phát hiện tất cả các lỗ tròn trên vật thể khi chạy qua camera
 - **Yêu cầu**:
-  - Thuật toán Edge Detection (Canny, Sobel, hoặc Sub-pixel)
-  - Khả năng phát hiện nhiều lỗ trong một ảnh
-  - Xử lý các trường hợp lỗ bị che khuất một phần
+  - **Tự động phát hiện** - Không cần định nghĩa trước vị trí ROI
+  - Phát hiện **nhiều lỗ tròn** trong một ảnh (số lượng không giới hạn)
+  - Phân biệt lỗ tròn với các hình dạng khác (oval, rectangle, noise)
+  - Lọc theo kích thước (min/max diameter) để loại bỏ nhiễu
+  - Xử lý các trường hợp lỗ bị che khuất một phần (partial occlusion)
+  - Hoạt động với các vật thể có vị trí/góc xoay khác nhau trên băng tải
+
+**Thuật toán phát hiện tự động:**
+```
+1. Threshold/Binarization → Tách vật thể khỏi nền (backlight)
+2. Contour Detection    → Tìm tất cả các đường viền
+3. Contour Filtering    → Lọc theo diện tích, circularity
+4. Circle Fitting       → Fit vòng tròn cho mỗi contour hợp lệ
+5. Validation           → Kiểm tra độ tròn (circularity > 0.85)
+```
 
 #### F03: Đo Kích Thước Lỗ
 - **Mô tả**: Tính toán đường kính lỗ tròn
@@ -331,33 +343,132 @@ Tổng chiều cao từ backlight đến camera: ~480mm
 
 ---
 
-## 6. Quy Trình Xử Lý Ảnh
+## 6. Quy Trình Xử Lý Ảnh - Tự Động Phát Hiện Hình Tròn
 
 ### 6.1 Pipeline Xử Lý
 
 ```
 ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│ 1. Acquire  │───>│ 2. Pre-     │───>│ 3. Edge     │───>│ 4. Circle   │
-│    Image    │    │  Process    │    │  Detection  │    │    Fitting  │
+│ 1. Trigger  │───>│ 2. Acquire  │───>│ 3. Pre-     │───>│ 4. Binary   │
+│   (Sensor)  │    │    Image    │    │  Process    │    │  Threshold  │
 └─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘
                                                                 │
-┌─────────────┐    ┌─────────────┐    ┌─────────────┐           │
-│ 7. Output   │<───│ 6. Decision │<───│ 5. Measure  │<──────────┘
-│   Results   │    │   Making    │    │   Diameter  │
-└─────────────┘    └─────────────┘    └─────────────┘
+                                                                ▼
+┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+│ 8. Output   │<───│ 7. Decision │<───│ 6. Measure  │<───│ 5. Auto     │
+│   Results   │    │   (OK/NG)   │    │  All Holes  │    │  Detect     │
+└─────────────┘    └─────────────┘    └─────────────┘    │  Circles    │
+                                                         └─────────────┘
 ```
 
-### 6.2 Chi Tiết Các Bước
+### 6.2 Chi Tiết Thuật Toán Tự Động Phát Hiện
 
-| Bước | Mô tả | Thuật toán/Phương pháp |
-|------|-------|------------------------|
-| **1. Acquire** | Chụp ảnh khi có trigger | Hardware Trigger, Exposure Control |
-| **2. Pre-process** | Chuẩn bị ảnh | Grayscale, Gaussian Blur, Threshold |
-| **3. Edge Detection** | Tìm biên cạnh lỗ | Canny Edge, Sub-pixel Edge |
-| **4. Circle Fitting** | Fit vòng tròn | Least Squares Circle Fit, RANSAC |
-| **5. Measure** | Tính đường kính | Pixel to mm conversion |
-| **6. Decision** | So sánh dung sai | Tolerance Check |
-| **7. Output** | Xuất kết quả | I/O, Logging, Display |
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                    AUTO CIRCLE DETECTION PIPELINE                       │
+├────────────────────────────────────────────────────────────────────────┤
+│                                                                        │
+│  ┌──────────────┐                                                      │
+│  │ Input Image  │  (Grayscale from camera)                             │
+│  └──────┬───────┘                                                      │
+│         │                                                              │
+│         ▼                                                              │
+│  ┌──────────────┐                                                      │
+│  │ Gaussian     │  Kernel: 5×5, σ=1.5                                  │
+│  │ Blur         │  → Giảm nhiễu                                        │
+│  └──────┬───────┘                                                      │
+│         │                                                              │
+│         ▼                                                              │
+│  ┌──────────────┐                                                      │
+│  │ Binary       │  Otsu's Method hoặc Adaptive Threshold               │
+│  │ Threshold    │  → Backlight: Lỗ = Trắng, Vật = Đen                  │
+│  └──────┬───────┘                                                      │
+│         │                                                              │
+│         ▼                                                              │
+│  ┌──────────────┐                                                      │
+│  │ Find         │  cv2.findContours()                                  │
+│  │ Contours     │  → Tìm tất cả đường viền kín                         │
+│  └──────┬───────┘                                                      │
+│         │                                                              │
+│         ▼                                                              │
+│  ┌──────────────┐  Điều kiện lọc:                                      │
+│  │ Filter       │  • Area: min_area < A < max_area                     │
+│  │ Contours     │  • Circularity: 4π×Area/Perimeter² > 0.85            │
+│  │              │  • Không chạm biên ảnh                               │
+│  └──────┬───────┘                                                      │
+│         │                                                              │
+│         ▼                                                              │
+│  ┌──────────────┐                                                      │
+│  │ Fit Circle   │  cv2.minEnclosingCircle() hoặc                       │
+│  │ (Each)       │  Least Squares Circle Fit                            │
+│  └──────┬───────┘                                                      │
+│         │                                                              │
+│         ▼                                                              │
+│  ┌──────────────┐                                                      │
+│  │ Sub-pixel    │  Edge refinement cho độ chính xác cao                │
+│  │ Refinement   │  → Độ chính xác ~0.1 pixel                           │
+│  └──────┬───────┘                                                      │
+│         │                                                              │
+│         ▼                                                              │
+│  ┌──────────────┐                                                      │
+│  │ Output List  │  [(x1,y1,d1), (x2,y2,d2), ...]                       │
+│  │ of Circles   │  → Tọa độ tâm + đường kính (mm)                      │
+│  └──────────────┘                                                      │
+│                                                                        │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+### 6.3 Tham Số Cấu Hình Phát Hiện Tự Động
+
+| Tham số | Mô tả | Giá trị mặc định | Phạm vi |
+|---------|-------|------------------|---------|
+| `min_diameter` | Đường kính lỗ nhỏ nhất (mm) | 1.0 | 0.5 ~ 50 |
+| `max_diameter` | Đường kính lỗ lớn nhất (mm) | 20.0 | 1.0 ~ 80 |
+| `min_circularity` | Độ tròn tối thiểu | 0.85 | 0.7 ~ 1.0 |
+| `blur_kernel` | Kích thước kernel blur | 5 | 3, 5, 7 |
+| `threshold_method` | Phương pháp threshold | Otsu | Otsu/Adaptive |
+| `edge_margin` | Khoảng cách tối thiểu từ biên ảnh (px) | 10 | 5 ~ 50 |
+
+### 6.4 Công Thức Tính Circularity (Độ Tròn)
+
+```
+Circularity = 4π × Area / Perimeter²
+
+Trong đó:
+- Area = Diện tích contour (pixels²)
+- Perimeter = Chu vi contour (pixels)
+
+Giá trị:
+- Hình tròn hoàn hảo: Circularity = 1.0
+- Hình vuông: Circularity ≈ 0.785
+- Hình elip: Circularity < 1.0 (phụ thuộc tỷ lệ)
+
+➜ Ngưỡng khuyến nghị: Circularity ≥ 0.85 để xác định là hình tròn
+```
+
+### 6.5 Xử Lý Các Trường Hợp Đặc Biệt
+
+| Trường hợp | Xử lý |
+|------------|-------|
+| Lỗ chạm biên ảnh | Bỏ qua (không đo được chính xác) |
+| Lỗ bị che một phần | Fit circle từ phần visible, đánh dấu "partial" |
+| Nhiều lỗ chồng lên nhau | Watershed segmentation hoặc bỏ qua |
+| Lỗ quá nhỏ (< min_diameter) | Lọc bỏ, coi là nhiễu |
+| Lỗ quá lớn (> max_diameter) | Lọc bỏ, có thể là outline vật thể |
+| Hình không tròn | Lọc bỏ dựa trên circularity < 0.85 |
+
+### 6.6 Output Cho Mỗi Lỗ Phát Hiện
+
+| Field | Kiểu | Mô tả |
+|-------|------|-------|
+| `hole_id` | int | ID của lỗ trong ảnh (1, 2, 3...) |
+| `center_x` | float | Tọa độ X tâm lỗ (mm) |
+| `center_y` | float | Tọa độ Y tâm lỗ (mm) |
+| `diameter` | float | Đường kính lỗ (mm) |
+| `circularity` | float | Độ tròn (0~1) |
+| `area` | float | Diện tích (mm²) |
+| `status` | enum | OK / NG / PARTIAL |
+| `confidence` | float | Độ tin cậy phát hiện (0~1) |
 
 ---
 
@@ -590,11 +701,11 @@ Với F/6.5 (mặc định):
 
 ---
 
-**Document Version:** 1.2
+**Document Version:** 1.3
 **Created Date:** 2025-12-26
 **Last Updated:** 2025-12-26
 **Author:** Claude AI Assistant
-**Status:** Draft - Continuous Lighting Mode
+**Status:** Draft - Auto Circle Detection
 
 ---
 
@@ -605,3 +716,4 @@ Với F/6.5 (mặc định):
 | 1.0 | 2025-12-26 | Initial draft |
 | 1.1 | 2025-12-26 | Updated with confirmed HK-YC10-80H lens specifications from datasheet |
 | 1.2 | 2025-12-26 | Changed lighting mode to Continuous (non-strobe), added motion blur calculations |
+| 1.3 | 2025-12-26 | Added automatic circle detection algorithm, detailed processing pipeline |
