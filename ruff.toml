@@ -32,6 +32,7 @@ ignore = [
     "E722",   # bare except
     "F401",   # unused imports (many are for type checking or optional deps)
     "F403",   # star imports
+    "F541",   # f-string without placeholders
     "F841",   # local variable assigned but never used
 ]
 
