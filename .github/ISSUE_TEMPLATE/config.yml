@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📖 Documentation
+    url: https://github.com/nguyenductho89/Basler_Claude_Workflow/tree/master/docs
+    about: Xem tài liệu hướng dẫn trước khi tạo issue
+  - name: 💬 Discussions
+    url: https://github.com/nguyenductho89/Basler_Claude_Workflow/discussions
+    about: Đặt câu hỏi hoặc thảo luận ý tưởng
