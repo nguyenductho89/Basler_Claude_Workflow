@@ -1097,10 +1097,253 @@ python src/main.py
 
 ---
 
-**Document Version:** 1.1
+## 12. Sequence Diagrams (Mermaid)
+
+### 12.1 Calibration Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant UI as CalibrationDialog
+    participant CS as CalibrationService
+    participant D as Detector
+    participant C as Camera
+
+    U->>UI: Open Calibration Dialog
+    UI->>C: Grab Frame
+    C-->>UI: Frame
+    UI->>UI: Display Frame
+
+    U->>UI: Enter Known Diameter (mm)
+    U->>UI: Click "Auto Calibrate"
+
+    UI->>D: detect(frame)
+    D-->>UI: circles[]
+
+    alt Circle Found
+        UI->>CS: calibrate(known_mm, detected_px)
+        CS->>CS: Calculate pixel_to_mm
+        CS->>CS: Save to JSON
+        CS-->>UI: CalibrationData
+        UI->>U: Show "Calibration Success"
+    else No Circle Found
+        UI->>U: Show "No circle detected"
+    end
+```
+
+### 12.2 Recipe Loading Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant UI as MainWindow
+    participant RS as RecipeService
+    participant D as Detector
+    participant CS as CalibrationService
+
+    U->>UI: Select Recipe from Menu
+    UI->>RS: get_recipe(name)
+    RS->>RS: Read JSON file
+    RS-->>UI: Recipe
+
+    UI->>D: update_config(recipe.detection_config)
+    UI->>CS: set_pixel_to_mm(recipe.pixel_to_mm)
+    UI->>UI: Update tolerance settings
+    UI->>UI: Update UI controls
+
+    UI->>U: Show "Recipe Loaded"
+```
+
+### 12.3 Trigger → Detection → Output Flow
+
+```mermaid
+sequenceDiagram
+    participant PLC as PLC/Sensor
+    participant IO as IOService
+    participant C as Camera
+    participant D as Detector
+    participant V as Visualizer
+    participant UI as MainWindow
+
+    PLC->>IO: Trigger Signal (Rising Edge)
+    IO->>IO: Debounce Check
+    IO->>IO: Set Busy = True
+
+    IO->>C: Request Frame
+    C-->>IO: Frame
+
+    IO->>D: detect(frame)
+    D->>D: Preprocess
+    D->>D: Find Contours
+    D->>D: Filter & Measure
+    D-->>IO: circles[]
+
+    IO->>IO: Check Tolerance
+    alt All OK
+        IO->>PLC: Pulse OK Signal
+    else Any NG
+        IO->>PLC: Pulse NG Signal
+        IO->>IO: Save NG Image
+    end
+
+    IO->>V: draw(frame, circles)
+    V-->>UI: result_frame
+    UI->>UI: Display Result
+
+    IO->>IO: Set Busy = False
+    IO->>PLC: Set Ready = True
+```
+
+---
+
+## 13. State Machine Diagrams
+
+### 13.1 IO State Machine
+
+```mermaid
+stateDiagram-v2
+    [*] --> Disconnected
+
+    Disconnected --> Initializing: initialize()
+    Initializing --> Connected: Success
+    Initializing --> Disconnected: Failure
+
+    Connected --> Ready: start()
+    Ready --> Busy: Trigger Received
+    Busy --> Processing: Frame Grabbed
+    Processing --> OutputOK: All circles OK
+    Processing --> OutputNG: Any circle NG
+    OutputOK --> Ready: Pulse Complete
+    OutputNG --> Ready: Pulse Complete
+
+    Ready --> Error: System Error
+    Busy --> Error: Grab Failed
+    Processing --> Error: Detection Failed
+    Error --> Ready: Error Cleared
+
+    Ready --> Connected: stop()
+    Connected --> Disconnected: cleanup()
+```
+
+### 13.2 Camera State Machine
+
+```mermaid
+stateDiagram-v2
+    [*] --> Idle
+
+    Idle --> Connecting: connect()
+    Connecting --> Connected: Success
+    Connecting --> Idle: Failure
+
+    Connected --> Grabbing: start_grabbing()
+    Grabbing --> Connected: stop_grabbing()
+    Grabbing --> Grabbing: grab_frame()
+
+    Connected --> Idle: disconnect()
+    Grabbing --> Idle: disconnect()
+
+    Grabbing --> Error: Grab Error
+    Error --> Grabbing: Retry
+    Error --> Idle: disconnect()
+```
+
+---
+
+## 14. Deployment Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           PRODUCTION ENVIRONMENT                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                        Factory Network                               │   │
+│  │                       (192.168.1.0/24)                               │   │
+│  └───────────────────────────────┬─────────────────────────────────────┘   │
+│                                  │                                          │
+│          ┌───────────────────────┼───────────────────────┐                 │
+│          │                       │                       │                 │
+│          ▼                       ▼                       ▼                 │
+│  ┌───────────────┐      ┌───────────────┐      ┌───────────────┐          │
+│  │  Vision PC    │      │    PLC        │      │    SCADA      │          │
+│  │ 192.168.1.10  │      │ 192.168.1.20  │      │ 192.168.1.30  │          │
+│  ├───────────────┤      ├───────────────┤      ├───────────────┤          │
+│  │ Windows 11    │      │ Siemens S7    │      │ WinCC         │          │
+│  │ Python 3.11   │      │ 1214C         │      │ Server        │          │
+│  │ Circle App    │      │               │      │               │          │
+│  └───────┬───────┘      └───────┬───────┘      └───────────────┘          │
+│          │                      │                                          │
+│          │ GigE (192.168.2.x)   │ Digital I/O                              │
+│          │                      │ (24V DC)                                  │
+│          ▼                      │                                          │
+│  ┌───────────────┐              │                                          │
+│  │ Basler Camera │              │                                          │
+│  │ 192.168.2.10  │              │                                          │
+│  ├───────────────┤              │                                          │
+│  │ acA4600-7gc   │              │                                          │
+│  │ + Telecentric │              │                                          │
+│  └───────┬───────┘              │                                          │
+│          │                      │                                          │
+│          ▼                      ▼                                          │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                        CONVEYOR SYSTEM                               │   │
+│  │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐   │   │
+│  │  │ Part In │→ │ Sensor  │→ │ Camera  │→ │ Vision  │→ │ Part Out│   │   │
+│  │  │         │  │ (Trigger)│  │ (FOV)   │  │ (LED)   │  │ (OK/NG) │   │   │
+│  │  └─────────┘  └─────────┘  └─────────┘  └─────────┘  └─────────┘   │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+Network Configuration:
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ Vision PC Network Interfaces:                                                │
+│   - NIC 1: Factory Network (192.168.1.10) - PLC, SCADA communication        │
+│   - NIC 2: Camera Network (192.168.2.1) - Dedicated GigE for camera         │
+│                                                                             │
+│ IO Card:                                                                     │
+│   - NI USB-6001 or Advantech USB-4750                                        │
+│   - DI: Trigger, Enable, Recipe Bits                                         │
+│   - DO: OK, NG, Ready, Error, Busy                                           │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 15. Security Considerations
+
+### 15.1 Access Control
+
+| Feature | Implementation |
+|---------|---------------|
+| User Authentication | Future: Windows AD integration |
+| Role-based Access | Future: Operator/Technician/Engineer roles |
+| Audit Logging | All configuration changes logged |
+
+### 15.2 Data Protection
+
+| Data Type | Protection |
+|-----------|------------|
+| Recipes | JSON files, no encryption (factory internal) |
+| Calibration | JSON files, timestamped |
+| Images | Local storage, optional backup |
+| Logs | Rotating files, retention policy |
+
+### 15.3 Network Security
+
+| Measure | Description |
+|---------|-------------|
+| Camera Network | Isolated VLAN, no internet access |
+| Factory Network | Firewall between IT and OT |
+| Remote Access | VPN required for remote support |
+
+---
+
+**Document Version:** 1.2
 **Created Date:** 2025-12-26
-**Author:** Claude AI Assistant
-**Status:** Ready for Review
+**Last Updated:** 2025-12-27
+**Author:** Development Team
+**Status:** Approved
 
 ---
 
@@ -1110,3 +1353,4 @@ python src/main.py
 |---------|------|---------|
 | 1.0 | 2025-12-26 | Initial architecture design |
 | 1.1 | 2025-12-26 | Added PLC/IO Interface (6.4), Threading Model (9.3) |
+| 1.2 | 2025-12-27 | Added Sequence Diagrams, State Machines, Deployment Diagram, Security |

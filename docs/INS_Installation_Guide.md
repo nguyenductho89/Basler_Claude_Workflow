@@ -6,7 +6,9 @@
 3. [Hardware Setup](#hardware-setup)
 4. [Configuration](#configuration)
 5. [Verification](#verification)
-6. [Troubleshooting](#troubleshooting)
+6. [Upgrade Procedure](#upgrade-procedure)
+7. [Backup and Restore](#backup-and-restore)
+8. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -243,9 +245,260 @@ Expected: All tests pass (50+ tests)
 
 ---
 
-## 6. Troubleshooting
+## 6. Upgrade Procedure
 
-### 6.1 Camera Not Found
+### 6.1 Pre-Upgrade Checklist
+
+Before upgrading, complete these steps:
+
+- [ ] Backup all data (see Section 7)
+- [ ] Note current version: `python main.py --version`
+- [ ] Stop all running instances
+- [ ] Close camera connections
+- [ ] Document custom configurations
+
+### 6.2 Upgrade from 1.x to 2.x
+
+**Major version upgrades** require additional steps:
+
+1. **Backup existing installation**:
+   ```cmd
+   xcopy C:\CircleMeasurement C:\CircleMeasurement_backup /E /H /I
+   ```
+
+2. **Export all recipes**:
+   ```cmd
+   python -m tools.export_recipes --output recipes_backup.zip
+   ```
+
+3. **Uninstall old version** (optional but recommended):
+   ```cmd
+   rmdir /s C:\CircleMeasurement\venv
+   ```
+
+4. **Install new version**:
+   ```cmd
+   unzip CircleMeasurementSystem-2.0.0.zip -d C:\CircleMeasurement
+   python -m venv venv
+   venv\Scripts\activate
+   pip install -r requirements.txt
+   ```
+
+5. **Migrate configuration**:
+   - Copy `config/` from backup if compatible
+   - Or reconfigure using new defaults
+
+6. **Import recipes**:
+   ```cmd
+   python -m tools.import_recipes --input recipes_backup.zip
+   ```
+
+7. **Verify upgrade**:
+   ```cmd
+   python main.py --version
+   pytest tests/ -v
+   ```
+
+### 6.3 Minor Version Upgrade (e.g., 2.0 to 2.1)
+
+1. **Quick backup**:
+   ```cmd
+   xcopy config config_backup /E /H /I
+   xcopy recipes recipes_backup /E /H /I
+   ```
+
+2. **Update application files**:
+   ```cmd
+   git pull origin main
+   pip install -r requirements.txt --upgrade
+   ```
+
+3. **Verify**:
+   ```cmd
+   python main.py --version
+   ```
+
+### 6.4 Rollback Procedure
+
+If upgrade fails, restore from backup:
+
+1. **Stop application**
+
+2. **Restore files**:
+   ```cmd
+   rmdir /s C:\CircleMeasurement
+   xcopy C:\CircleMeasurement_backup C:\CircleMeasurement /E /H /I
+   ```
+
+3. **Restore virtual environment**:
+   ```cmd
+   cd C:\CircleMeasurement
+   python -m venv venv
+   venv\Scripts\activate
+   pip install -r requirements.txt
+   ```
+
+4. **Verify rollback**:
+   ```cmd
+   python main.py --version
+   ```
+
+### 6.5 Version Compatibility Matrix
+
+| From Version | To Version | Direct Upgrade | Notes |
+|--------------|------------|----------------|-------|
+| 1.0.x | 1.5.x | ✅ Yes | Recipe format unchanged |
+| 1.5.x | 2.0.x | ✅ Yes | New IO config required |
+| 1.0.x | 2.0.x | ⚠️ Via 1.5 | Step upgrade recommended |
+
+---
+
+## 7. Backup and Restore
+
+### 7.1 What to Backup
+
+| Data Type | Location | Priority | Frequency |
+|-----------|----------|----------|-----------|
+| Recipes | `recipes/` | Critical | After changes |
+| Configuration | `config/` | Critical | After changes |
+| Calibration | `config/calib.json` | Critical | After calibration |
+| Logs | `logs/` | Low | Weekly |
+| NG Images | `logs/ng_images/` | Medium | Daily |
+| Statistics | `logs/statistics/` | Medium | Daily |
+
+### 7.2 Manual Backup
+
+#### Full Backup
+```cmd
+@echo off
+set BACKUP_DIR=D:\Backups\CircleMeasurement_%date:~-4%%date:~4,2%%date:~7,2%
+mkdir %BACKUP_DIR%
+xcopy C:\CircleMeasurement\config %BACKUP_DIR%\config /E /H /I
+xcopy C:\CircleMeasurement\recipes %BACKUP_DIR%\recipes /E /H /I
+xcopy C:\CircleMeasurement\logs %BACKUP_DIR%\logs /E /H /I
+echo Backup completed to %BACKUP_DIR%
+```
+
+#### Quick Backup (Critical Only)
+```cmd
+xcopy config config_backup_%date:~-4%%date:~4,2%%date:~7,2% /E /H /I
+xcopy recipes recipes_backup_%date:~-4%%date:~4,2%%date:~7,2% /E /H /I
+```
+
+### 7.3 Automated Backup
+
+Create scheduled task for daily backup:
+
+1. **Create backup script** `backup.bat`:
+   ```batch
+   @echo off
+   set BACKUP_ROOT=D:\Backups\CircleMeasurement
+   set BACKUP_DIR=%BACKUP_ROOT%\%date:~-4%%date:~4,2%%date:~7,2%_%time:~0,2%%time:~3,2%
+   mkdir "%BACKUP_DIR%"
+   xcopy C:\CircleMeasurement\config "%BACKUP_DIR%\config" /E /H /I /Y
+   xcopy C:\CircleMeasurement\recipes "%BACKUP_DIR%\recipes" /E /H /I /Y
+   xcopy C:\CircleMeasurement\logs\*.log "%BACKUP_DIR%\logs" /H /I /Y
+
+   REM Keep only last 30 days
+   forfiles /p "%BACKUP_ROOT%" /d -30 /c "cmd /c rmdir /s /q @path" 2>nul
+
+   echo Backup completed: %BACKUP_DIR%
+   ```
+
+2. **Schedule via Task Scheduler**:
+   - Open Task Scheduler
+   - Create Basic Task: "CircleMeasurement Backup"
+   - Trigger: Daily at 23:00
+   - Action: Start program `backup.bat`
+
+### 7.4 Restore Procedure
+
+#### Full Restore
+```cmd
+@echo off
+set BACKUP_DIR=D:\Backups\CircleMeasurement_20241227
+echo Restoring from %BACKUP_DIR%...
+
+REM Stop application first!
+taskkill /f /im python.exe 2>nul
+
+REM Restore configuration
+xcopy "%BACKUP_DIR%\config" C:\CircleMeasurement\config /E /H /I /Y
+
+REM Restore recipes
+xcopy "%BACKUP_DIR%\recipes" C:\CircleMeasurement\recipes /E /H /I /Y
+
+echo Restore completed. Please restart application.
+```
+
+#### Selective Restore
+
+**Restore only recipes**:
+```cmd
+xcopy "D:\Backups\CircleMeasurement_20241227\recipes" C:\CircleMeasurement\recipes /E /H /I /Y
+```
+
+**Restore single recipe**:
+```cmd
+copy "D:\Backups\CircleMeasurement_20241227\recipes\Product_A.json" C:\CircleMeasurement\recipes\
+```
+
+**Restore calibration only**:
+```cmd
+copy "D:\Backups\CircleMeasurement_20241227\config\calib.json" C:\CircleMeasurement\config\
+```
+
+### 7.5 Backup Verification
+
+After backup, verify integrity:
+
+```cmd
+@echo off
+set BACKUP_DIR=D:\Backups\CircleMeasurement_20241227
+
+echo Verifying backup...
+if exist "%BACKUP_DIR%\config\app_config.json" (
+    echo [OK] app_config.json
+) else (
+    echo [FAIL] app_config.json missing!
+)
+
+if exist "%BACKUP_DIR%\config\calib.json" (
+    echo [OK] calib.json
+) else (
+    echo [WARN] calib.json missing - may need recalibration
+)
+
+dir "%BACKUP_DIR%\recipes\*.json" /b 2>nul | find /c /v "" > temp.txt
+set /p RECIPE_COUNT=<temp.txt
+del temp.txt
+echo [INFO] Found %RECIPE_COUNT% recipe files
+```
+
+### 7.6 Disaster Recovery
+
+In case of complete system failure:
+
+1. **Install fresh OS and prerequisites** (see Section 2)
+
+2. **Install application from package**
+
+3. **Restore from most recent backup**:
+   ```cmd
+   xcopy "D:\Backups\CircleMeasurement_latest\*" C:\CircleMeasurement\ /E /H /I /Y
+   ```
+
+4. **Recalibrate camera** (required if hardware changed)
+
+5. **Verify all recipes load correctly**
+
+6. **Run verification tests** (see Section 5)
+
+---
+
+## 8. Troubleshooting
+
+### 8.1 Camera Not Found
 
 | Symptom | Cause | Solution |
 |---------|-------|----------|
@@ -254,7 +507,7 @@ Expected: All tests pass (50+ tests)
 | Intermittent disconnection | Network issue | Check cable, use dedicated NIC |
 | USB camera not recognized | Wrong port | Use USB 3.0 port |
 
-### 6.2 Detection Issues
+### 8.2 Detection Issues
 
 | Symptom | Cause | Solution |
 |---------|-------|----------|
@@ -263,7 +516,7 @@ Expected: All tests pass (50+ tests)
 | Partial circles | Poor lighting | Improve illumination |
 | Noisy detection | Image quality | Add blur, adjust exposure |
 
-### 6.3 Calibration Issues
+### 8.3 Calibration Issues
 
 | Symptom | Cause | Solution |
 |---------|-------|----------|
@@ -271,7 +524,7 @@ Expected: All tests pass (50+ tests)
 | Measurement drift | Temperature change | Re-calibrate periodically |
 | Large error | Wrong reference size | Verify calibration target |
 
-### 6.4 Performance Issues
+### 8.4 Performance Issues
 
 | Symptom | Cause | Solution |
 |---------|-------|----------|
@@ -279,7 +532,7 @@ Expected: All tests pass (50+ tests)
 | GUI freezing | Threading issue | Check worker thread status |
 | Memory growth | Image accumulation | Clear history periodically |
 
-### 6.5 Log Files
+### 8.5 Log Files
 
 Application logs are stored in `logs/` directory:
 ```

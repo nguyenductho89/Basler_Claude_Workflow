@@ -861,11 +861,89 @@ Categories:
 - ERR: Error handling
 ```
 
-### 11.2 Version History
+### 11.2 Regression Test Strategy
+
+#### 11.2.1 Regression Test Scope
+
+| Trigger | Scope | Description |
+|---------|-------|-------------|
+| Bug Fix | Affected module + related modules | Test the fix and verify no side effects |
+| Feature Addition | New feature + integration points | Full regression on affected areas |
+| Refactoring | Full regression | Complete test suite execution |
+| Release | Full regression + smoke tests | All tests must pass |
+
+#### 11.2.2 Regression Test Suite
+
+| Suite | Tests | Execution Time | Frequency |
+|-------|-------|----------------|-----------|
+| Smoke | 10 critical tests | ~2 min | Every commit |
+| Core | 50 unit tests | ~5 min | Every push |
+| Full | 113+ all tests | ~15 min | Daily/PR merge |
+| Extended | Full + performance | ~30 min | Weekly |
+
+#### 11.2.3 CI/CD Automated Regression
+
+```yaml
+# Automated via GitHub Actions
+on:
+  push: Run Smoke + Core
+  pull_request: Run Full Suite
+  schedule (daily): Run Extended Suite
+```
+
+#### 11.2.4 Regression Priority Matrix
+
+| Priority | Criteria | Examples |
+|----------|----------|----------|
+| P1 Critical | Core functionality, data integrity | Detection accuracy, calibration save |
+| P2 High | Key features, user workflows | Recipe load, tolerance check |
+| P3 Medium | Secondary features | Statistics export, history |
+| P4 Low | UI, cosmetic | Color display, label format |
+
+---
+
+### 11.3 Test Fixtures
+
+Test fixtures được lưu tại `tests/fixtures/`:
+
+```
+tests/fixtures/
+├── images/
+│   ├── circle_single_10mm.png      # Single circle, 10mm diameter
+│   ├── circles_multiple_3.png      # 3 circles: 8mm, 10mm, 12mm
+│   ├── circles_edge_partial.png    # Circle at edge (partial)
+│   ├── ellipse_not_circle.png      # Ellipse for filter test
+│   ├── blank_no_object.png         # Blank image
+│   ├── noisy_low_contrast.png      # Low contrast test
+│   └── calibration_target.png      # Known diameter for calibration
+├── recipes/
+│   ├── test_recipe_default.json    # Default test recipe
+│   ├── test_recipe_tight_tol.json  # Tight tolerance (0.05mm)
+│   └── test_recipe_large_range.json # Large diameter range
+├── calibration/
+│   └── test_calibration.json       # Pre-defined calibration data
+└── config/
+    └── test_app_config.json        # Test application config
+```
+
+#### Image Fixture Specifications
+
+| Filename | Dimensions | Circles | Diameter (px) | Purpose |
+|----------|------------|---------|---------------|---------|
+| circle_single_10mm.png | 640×480 | 1 | 155 | Basic detection |
+| circles_multiple_3.png | 800×600 | 3 | 124, 155, 186 | Multi-circle |
+| circles_edge_partial.png | 640×480 | 1 | 155 (partial) | Edge handling |
+| ellipse_not_circle.png | 640×480 | 0 | N/A | Filter test |
+| blank_no_object.png | 640×480 | 0 | N/A | No detection |
+
+---
+
+### 11.4 Version History
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2025-12-27 | Dev Team | Initial test plan |
+| 1.1 | 2025-12-27 | Dev Team | Added Regression Strategy, Test Fixtures |
 
 ---
 

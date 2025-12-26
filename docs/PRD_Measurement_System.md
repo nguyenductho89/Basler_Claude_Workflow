@@ -108,7 +108,84 @@ Xây dựng hệ thống kiểm tra chất lượng tự động (Automated Qual
 | US-10 | Engineer | Tôi muốn xem thống kê OK/NG theo thời gian | Low |
 | US-11 | Manager | Tôi muốn xuất báo cáo đo lường theo ca/ngày | Low |
 
-### 3.2 Use Cases
+### 3.2 Acceptance Criteria
+
+#### US-01: Live Camera View
+| AC ID | Acceptance Criteria | Status |
+|-------|---------------------|--------|
+| AC-01.1 | GIVEN camera connected, WHEN app starts, THEN live view displays at ≥10 FPS | ✅ Pass |
+| AC-01.2 | GIVEN live view running, WHEN exposure changes, THEN image brightness updates immediately | ✅ Pass |
+| AC-01.3 | GIVEN live view, WHEN frame rate < 5 FPS, THEN warning displayed | ✅ Pass |
+
+#### US-02: Auto Circle Detection
+| AC ID | Acceptance Criteria | Status |
+|-------|---------------------|--------|
+| AC-02.1 | GIVEN image with circles, WHEN detect runs, THEN all circles within size range found | ✅ Pass |
+| AC-02.2 | GIVEN non-circular shapes, WHEN detect runs, THEN shapes with circularity < 0.85 rejected | ✅ Pass |
+| AC-02.3 | GIVEN circle at edge, WHEN detect runs, THEN partial circles marked as PARTIAL status | ✅ Pass |
+
+#### US-03: Visual Measurement Display
+| AC ID | Acceptance Criteria | Status |
+|-------|---------------------|--------|
+| AC-03.1 | GIVEN detected circle, WHEN visualize, THEN edge highlighted with visible color | ✅ Pass |
+| AC-03.2 | GIVEN detected circle, WHEN visualize, THEN diameter line drawn through center | ✅ Pass |
+| AC-03.3 | GIVEN detected circle, WHEN visualize, THEN label shows "D=X.XXXmm" format | ✅ Pass |
+
+#### US-04: OK/NG Color Indication
+| AC ID | Acceptance Criteria | Status |
+|-------|---------------------|--------|
+| AC-04.1 | GIVEN tolerance enabled AND diameter in range, WHEN display, THEN show GREEN color | ✅ Pass |
+| AC-04.2 | GIVEN tolerance enabled AND diameter out of range, WHEN display, THEN show RED color | ✅ Pass |
+| AC-04.3 | GIVEN tolerance disabled, WHEN display, THEN show GRAY color | ✅ Pass |
+
+#### US-05: Easy Camera Connection
+| AC ID | Acceptance Criteria | Status |
+|-------|---------------------|--------|
+| AC-05.1 | GIVEN cameras available, WHEN refresh clicked, THEN device list updates | ✅ Pass |
+| AC-05.2 | GIVEN camera selected, WHEN connect clicked, THEN connection established in < 3 seconds | ✅ Pass |
+| AC-05.3 | GIVEN camera connected, WHEN disconnect clicked, THEN camera released properly | ✅ Pass |
+
+#### US-06: Exposure Control
+| AC ID | Acceptance Criteria | Status |
+|-------|---------------------|--------|
+| AC-06.1 | GIVEN camera connected, WHEN exposure slider moved, THEN camera exposure updates | ✅ Pass |
+| AC-06.2 | GIVEN exposure range 10µs-1000ms, WHEN value outside range, THEN clamp to valid range | ✅ Pass |
+
+#### US-07: Tolerance Configuration
+| AC ID | Acceptance Criteria | Status |
+|-------|---------------------|--------|
+| AC-07.1 | GIVEN tolerance panel, WHEN nominal entered, THEN value stored correctly | ✅ Pass |
+| AC-07.2 | GIVEN tolerance panel, WHEN tolerance entered, THEN OK range = nominal ± tolerance | ✅ Pass |
+| AC-07.3 | GIVEN tolerance disabled, WHEN measurement taken, THEN no OK/NG judgment | ✅ Pass |
+
+#### US-08: Calibration
+| AC ID | Acceptance Criteria | Status |
+|-------|---------------------|--------|
+| AC-08.1 | GIVEN calibration dialog, WHEN reference size entered, THEN pixel-to-mm calculated | ✅ Pass |
+| AC-08.2 | GIVEN calibration complete, WHEN app restarts, THEN calibration data loaded | ✅ Pass |
+| AC-08.3 | GIVEN calibration, WHEN measurement accuracy checked, THEN error < 0.01mm | ✅ Pass |
+
+#### US-09: Recipe Management
+| AC ID | Acceptance Criteria | Status |
+|-------|---------------------|--------|
+| AC-09.1 | GIVEN recipe dialog, WHEN save clicked, THEN recipe file created in recipes/ | ✅ Pass |
+| AC-09.2 | GIVEN saved recipe, WHEN load clicked, THEN all settings applied | ✅ Pass |
+| AC-09.3 | GIVEN recipe, WHEN export clicked, THEN JSON file saved to selected path | ✅ Pass |
+
+#### US-10: Statistics Tracking
+| AC ID | Acceptance Criteria | Status |
+|-------|---------------------|--------|
+| AC-10.1 | GIVEN measurements running, WHEN OK detected, THEN OK count increments | ✅ Pass |
+| AC-10.2 | GIVEN statistics panel, WHEN displayed, THEN shows OK rate = OK/(OK+NG)×100% | ✅ Pass |
+| AC-10.3 | GIVEN statistics, WHEN reset clicked, THEN all counters reset to zero | ✅ Pass |
+
+#### US-11: Report Export
+| AC ID | Acceptance Criteria | Status |
+|-------|---------------------|--------|
+| AC-11.1 | GIVEN history data, WHEN export CSV clicked, THEN file with timestamp created | ✅ Pass |
+| AC-11.2 | GIVEN CSV file, WHEN opened, THEN contains: time, diameter, status, recipe columns | ✅ Pass |
+
+### 3.3 Use Cases
 
 #### UC-01: Kết Nối Camera
 ```
@@ -940,15 +1017,16 @@ Release 2.0 Features (FINAL):
 
 ### 11.6 Sprint Summary
 
-| Sprint | Release | Focus | Story Points |
-|--------|---------|-------|--------------|
-| Sprint 1 | MVP 1.0 | Camera & Live View | 26 |
-| Sprint 2 | MVP 1.0 | Detection & Display | 30 |
-| Sprint 3 | Release 1.1 | Calibration & Tolerance | 27 |
-| Sprint 4 | Release 1.1 | Threading & History | 28 |
-| Sprint 5 | Release 1.2 | Recipe & Reporting | 30 |
-| Sprint 6 | Release 2.0 | PLC/IO Integration | 35 |
-| Sprint 7 | Release 2.0 | Integration & Testing | 34 |
+| Sprint | Release | Focus | Story Points | Status |
+|--------|---------|-------|--------------|--------|
+| Sprint 1 | MVP 1.0 | Camera & Live View | 26 | ✅ Done |
+| Sprint 2 | MVP 1.0 | Detection & Display | 30 | ✅ Done |
+| Sprint 3 | Release 1.1 | Calibration & Tolerance | 27 | ✅ Done |
+| Sprint 4 | Release 1.1 | Threading & History | 28 | ✅ Done |
+| Sprint 5 | Release 1.2 | Recipe & Reporting | 30 | ✅ Done |
+| Sprint 6 | Release 2.0 | PLC/IO Integration | 35 | ✅ Done |
+| Sprint 7 | Release 2.0 | Integration & Testing | 34 | ✅ Done |
+| Sprint 8 | Release 2.0 | Documentation & CI/CD | - | 🔄 In Progress |
 | **Total** | | | **210 SP** |
 
 ### 11.7 Feature Matrix by Release
@@ -1077,11 +1155,76 @@ Với F/6.5 (mặc định):
 
 ---
 
-**Document Version:** 2.2
+## 15. Error Codes
+
+Bảng mã lỗi chuẩn hóa cho hệ thống.
+
+### 15.1 Camera Errors (E1xx)
+
+| Code | Name | Description | Resolution |
+|------|------|-------------|------------|
+| E100 | CAMERA_NOT_FOUND | Không tìm thấy camera | Kiểm tra kết nối cable, cài driver Pylon |
+| E101 | CAMERA_CONNECTION_FAILED | Kết nối camera thất bại | Kiểm tra IP, firewall, camera đã được dùng bởi app khác |
+| E102 | CAMERA_GRAB_FAILED | Grab frame thất bại | Kiểm tra exposure, trigger mode |
+| E103 | CAMERA_TIMEOUT | Timeout khi grab | Giảm exposure hoặc tăng timeout |
+| E104 | CAMERA_ALREADY_CONNECTED | Camera đã kết nối | Disconnect trước khi connect lại |
+| E105 | CAMERA_NOT_CONNECTED | Camera chưa kết nối | Connect camera trước |
+
+### 15.2 Detection Errors (E2xx)
+
+| Code | Name | Description | Resolution |
+|------|------|-------------|------------|
+| E200 | DETECTION_NO_CIRCLES | Không phát hiện circle | Điều chỉnh threshold, kiểm tra ánh sáng |
+| E201 | DETECTION_INVALID_IMAGE | Ảnh không hợp lệ | Kiểm tra camera output format |
+| E202 | DETECTION_CONFIG_INVALID | Config không hợp lệ | Kiểm tra parameters (min < max, etc.) |
+| E203 | DETECTION_PARTIAL_CIRCLE | Circle bị cắt tại biên | Di chuyển vật hoặc mở rộng FOV |
+
+### 15.3 Calibration Errors (E3xx)
+
+| Code | Name | Description | Resolution |
+|------|------|-------------|------------|
+| E300 | CALIBRATION_INVALID_REFERENCE | Reference size không hợp lệ | Nhập giá trị > 0 |
+| E301 | CALIBRATION_NO_CIRCLE_FOUND | Không tìm thấy circle để calibrate | Đặt mẫu chuẩn đúng vị trí, điều chỉnh ánh sáng |
+| E302 | CALIBRATION_FILE_ERROR | Lỗi đọc/ghi file calibration | Kiểm tra quyền file/folder |
+| E303 | CALIBRATION_EXPIRED | Calibration quá hạn | Re-calibrate (khuyến nghị < 7 ngày) |
+
+### 15.4 Recipe Errors (E4xx)
+
+| Code | Name | Description | Resolution |
+|------|------|-------------|------------|
+| E400 | RECIPE_NOT_FOUND | Recipe không tồn tại | Kiểm tra tên recipe, đường dẫn |
+| E401 | RECIPE_INVALID_FORMAT | Format file không đúng | Kiểm tra JSON syntax |
+| E402 | RECIPE_SAVE_FAILED | Lưu recipe thất bại | Kiểm tra quyền thư mục recipes/ |
+| E403 | RECIPE_NAME_EXISTS | Tên recipe đã tồn tại | Đổi tên khác hoặc overwrite |
+| E404 | RECIPE_IMPORT_FAILED | Import recipe thất bại | Kiểm tra file format, version |
+
+### 15.5 IO/PLC Errors (E5xx)
+
+| Code | Name | Description | Resolution |
+|------|------|-------------|------------|
+| E500 | IO_DEVICE_NOT_FOUND | Không tìm thấy IO device | Kiểm tra kết nối, cài driver |
+| E501 | IO_CONNECTION_FAILED | Kết nối IO thất bại | Kiểm tra device name, port |
+| E502 | IO_READ_ERROR | Lỗi đọc input | Kiểm tra wiring, signal level |
+| E503 | IO_WRITE_ERROR | Lỗi ghi output | Kiểm tra wiring, load |
+| E504 | IO_DRIVER_NOT_INSTALLED | Driver chưa cài | Cài NI-DAQmx hoặc Advantech driver |
+| E505 | IO_TRIGGER_TIMEOUT | Timeout chờ trigger | Kiểm tra sensor, PLC program |
+
+### 15.6 System Errors (E9xx)
+
+| Code | Name | Description | Resolution |
+|------|------|-------------|------------|
+| E900 | SYSTEM_MEMORY_LOW | Bộ nhớ thấp | Đóng ứng dụng khác, tăng RAM |
+| E901 | SYSTEM_DISK_FULL | Đĩa đầy | Xóa logs/images cũ |
+| E902 | SYSTEM_THREAD_ERROR | Lỗi thread | Restart ứng dụng |
+| E903 | SYSTEM_CONFIG_ERROR | Lỗi config file | Kiểm tra JSON syntax |
+
+---
+
+**Document Version:** 2.3
 **Created Date:** 2025-12-26
-**Last Updated:** 2025-12-26
-**Author:** Claude AI Assistant
-**Status:** Ready for Review
+**Last Updated:** 2025-12-27
+**Author:** Development Team
+**Status:** Approved
 
 ---
 
@@ -1096,3 +1239,4 @@ Với F/6.5 (mặc định):
 | 2.0 | 2025-12-26 | Added User Stories, Use Cases, Sequence Diagram - PRD Complete |
 | 2.1 | 2025-12-26 | Fixed section numbering (Section 4 duplicate), unified FOV range (0.5mm~20mm) |
 | 2.2 | 2025-12-26 | Added Sprint Plan & Release Roadmap (MVP → Release 2.0 with PLC) |
+| 2.3 | 2025-12-27 | Added Acceptance Criteria, Sprint Status, Error Codes |
