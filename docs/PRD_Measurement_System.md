@@ -288,9 +288,9 @@ Postcondition: Hệ thống đã được calibrate
 
 ---
 
-## 4. Yêu Cầu Phi Chức Năng
+## 5. Yêu Cầu Phi Chức Năng
 
-### 4.1 Hiệu Năng
+### 5.1 Hiệu Năng
 
 | Yêu cầu | Giá trị |
 |---------|---------|
@@ -299,7 +299,7 @@ Postcondition: Hệ thống đã được calibrate
 | **Số lượng sản phẩm/phút** | ≥ 20 pcs/min (tùy cấu hình) |
 | **Thời gian khởi động** | < 30 giây |
 
-### 4.2 Độ Chính Xác
+### 5.2 Độ Chính Xác
 
 | Yêu cầu | Giá trị |
 |---------|---------|
@@ -308,7 +308,7 @@ Postcondition: Hệ thống đã được calibrate
 | **Độ chính xác tuyệt đối** | ≤ ±0.05mm |
 | **Gauge R&R** | ≤ 10% |
 
-### 4.3 Độ Tin Cậy
+### 5.3 Độ Tin Cậy
 
 | Yêu cầu | Giá trị |
 |---------|---------|
@@ -318,7 +318,7 @@ Postcondition: Hệ thống đã được calibrate
 | **Tỷ lệ phát hiện đúng** | ≥ 99.9% |
 | **Tỷ lệ báo sai (False Rejection)** | ≤ 0.1% |
 
-### 4.4 Môi Trường Hoạt Động
+### 5.4 Môi Trường Hoạt Động
 
 | Yêu cầu | Giá trị |
 |---------|---------|
@@ -329,9 +329,9 @@ Postcondition: Hệ thống đã được calibrate
 
 ---
 
-## 5. Kiến Trúc Hệ Thống
+## 6. Kiến Trúc Hệ Thống
 
-### 5.1 Sơ Đồ Khối Hệ Thống
+### 6.1 Sơ Đồ Khối Hệ Thống
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -364,7 +364,7 @@ Postcondition: Hệ thống đã được calibrate
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-### 5.2 Cấu Hình Phần Cứng
+### 6.2 Cấu Hình Phần Cứng
 
 #### A. Hệ Thống Camera
 | Thành phần | Model/Specs |
@@ -452,7 +452,7 @@ Tổng chiều cao từ backlight đến camera: ~480mm
 | Enclosure | IP65 cho camera và đèn |
 | Mounting Bracket | Giá đỡ điều chỉnh được |
 
-### 5.3 Cấu Hình Phần Mềm
+### 6.3 Cấu Hình Phần Mềm
 
 | Thành phần | Lựa chọn |
 |------------|----------|
@@ -464,9 +464,9 @@ Tổng chiều cao từ backlight đến camera: ~480mm
 
 ---
 
-## 6. Quy Trình Xử Lý Ảnh - Tự Động Phát Hiện Hình Tròn
+## 7. Quy Trình Xử Lý Ảnh - Tự Động Phát Hiện Hình Tròn
 
-### 6.1 Pipeline Xử Lý
+### 7.1 Pipeline Xử Lý
 
 ```
 ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
@@ -482,7 +482,7 @@ Tổng chiều cao từ backlight đến camera: ~480mm
                                                          └─────────────┘
 ```
 
-### 6.2 Chi Tiết Thuật Toán Tự Động Phát Hiện
+### 7.2 Chi Tiết Thuật Toán Tự Động Phát Hiện
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
@@ -539,7 +539,7 @@ Tổng chiều cao từ backlight đến camera: ~480mm
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 6.3 Tham Số Cấu Hình Phát Hiện Tự Động
+### 7.3 Tham Số Cấu Hình Phát Hiện Tự Động
 
 | Tham số | Mô tả | Giá trị mặc định | Phạm vi |
 |---------|-------|------------------|---------|
@@ -550,7 +550,7 @@ Tổng chiều cao từ backlight đến camera: ~480mm
 | `threshold_method` | Phương pháp threshold | Otsu | Otsu/Adaptive |
 | `edge_margin` | Khoảng cách tối thiểu từ biên ảnh (px) | 10 | 5 ~ 50 |
 
-### 6.4 Công Thức Tính Circularity (Độ Tròn)
+### 7.4 Công Thức Tính Circularity (Độ Tròn)
 
 ```
 Circularity = 4π × Area / Perimeter²
@@ -567,7 +567,7 @@ Giá trị:
 ➜ Ngưỡng khuyến nghị: Circularity ≥ 0.85 để xác định là hình tròn
 ```
 
-### 6.5 Xử Lý Các Trường Hợp Đặc Biệt
+### 7.5 Xử Lý Các Trường Hợp Đặc Biệt
 
 | Trường hợp | Xử lý |
 |------------|-------|
@@ -578,7 +578,7 @@ Giá trị:
 | Lỗ quá lớn (> max_diameter) | Lọc bỏ, có thể là outline vật thể |
 | Hình không tròn | Lọc bỏ dựa trên circularity < 0.85 |
 
-### 6.6 Output Cho Mỗi Lỗ Phát Hiện
+### 7.6 Output Cho Mỗi Lỗ Phát Hiện
 
 | Field | Kiểu | Mô tả |
 |-------|------|-------|
@@ -593,14 +593,14 @@ Giá trị:
 
 ---
 
-## 7. Tính Toán Hệ Thống
+## 8. Tính Toán Hệ Thống
 
-### 7.1 Tính Toán FOV và Độ Phân Giải
+### 8.1 Tính Toán FOV và Độ Phân Giải
 
 **Thông số đầu vào:**
 - Camera: Basler acA4600-7gc (4608 × 3288 pixels, sensor 1/2.3")
 - Lens: HK-YC10-80H (Magnification = 0.208x)
-- Kích thước lỗ cần đo: 5mm ~ 25mm
+- Kích thước lỗ cần đo: 0.5mm ~ 20mm
 - Dung sai đo yêu cầu: ±0.05mm
 
 **Tính toán FOV thực tế:**
@@ -655,7 +655,7 @@ Kích thước lỗ tối thiểu: ~0.5mm (cần ~77 pixels với sub-pixel)
 ➜ Phù hợp đo lỗ từ 0.5mm đến 20mm
 ```
 
-### 7.2 Tính Toán Tốc Độ Xử Lý
+### 8.2 Tính Toán Tốc Độ Xử Lý
 
 ```
 Camera Frame Rate: 7 fps @ Full Resolution
@@ -666,7 +666,7 @@ Throughput: 60s / 0.3s = 200 pcs/min (max theoretical)
 Practical Throughput: ~100-150 pcs/min (với margin an toàn)
 ```
 
-### 7.3 Tính Toán Băng Tải
+### 8.3 Tính Toán Băng Tải
 
 ```
 Nếu kích thước sản phẩm: 50mm
@@ -679,9 +679,9 @@ Tốc độ băng tải = 100 × 100mm/min = 10,000 mm/min = 10 m/min
 
 ---
 
-## 8. Tiêu Chuẩn Nghiệm Thu
+## 9. Tiêu Chuẩn Nghiệm Thu
 
-### 8.1 Factory Acceptance Test (FAT)
+### 9.1 Factory Acceptance Test (FAT)
 
 | Test ID | Mô tả | Tiêu chí đạt |
 |---------|-------|--------------|
@@ -691,7 +691,7 @@ Tốc độ băng tải = 100 × 100mm/min = 10,000 mm/min = 10 m/min
 | FAT-04 | Kiểm tra False Rejection | ≤ 0.1% trên 1000 mẫu |
 | FAT-05 | Kiểm tra Detection Rate | ≥ 99.9% phát hiện NG |
 
-### 8.2 Site Acceptance Test (SAT)
+### 9.2 Site Acceptance Test (SAT)
 
 | Test ID | Mô tả | Tiêu chí đạt |
 |---------|-------|--------------|
@@ -703,7 +703,7 @@ Tốc độ băng tải = 100 × 100mm/min = 10,000 mm/min = 10 m/min
 
 ---
 
-## 9. Rủi Ro và Giải Pháp
+## 10. Rủi Ro và Giải Pháp
 
 | Rủi Ro | Mức độ | Giải pháp |
 |--------|--------|-----------|
@@ -718,7 +718,7 @@ Tốc độ băng tải = 100 × 100mm/min = 10,000 mm/min = 10 m/min
 
 ---
 
-## 10. Timeline Dự Kiến
+## 11. Timeline Dự Kiến
 
 | Giai đoạn | Hoạt động |
 |-----------|-----------|
@@ -730,7 +730,7 @@ Tốc độ băng tải = 100 × 100mm/min = 10,000 mm/min = 10 m/min
 
 ---
 
-## 11. Deliverables
+## 12. Deliverables
 
 1. **Phần cứng**
    - Hệ thống camera hoàn chỉnh
@@ -756,7 +756,7 @@ Tốc độ băng tải = 100 × 100mm/min = 10,000 mm/min = 10 m/min
 
 ---
 
-## 12. Phụ Lục
+## 13. Phụ Lục
 
 ### A. Tham Khảo Thông Số Camera
 
@@ -787,9 +787,9 @@ Tốc độ băng tải = 100 × 100mm/min = 10,000 mm/min = 10 m/min
 
 ---
 
-## 13. Lưu Ý Kỹ Thuật Quan Trọng
+## 14. Lưu Ý Kỹ Thuật Quan Trọng
 
-### 13.1 Khuyến Nghị Về Cảm Biến Camera
+### 14.1 Khuyến Nghị Về Cảm Biến Camera
 
 ⚠️ **LƯU Ý:** Ống kính HK-YC10-80H được thiết kế tối ưu cho cảm biến 1" (φ16.6mm). Camera Basler acA4600-7gc sử dụng cảm biến 1/2.3" (φ7.7mm) nhỏ hơn nhiều.
 
@@ -801,7 +801,7 @@ Tốc độ băng tải = 100 × 100mm/min = 10,000 mm/min = 10 m/min
 - Không tận dụng hết FOV tối đa của lens (80mm → chỉ dùng 29.7mm)
 - Nếu cần FOV lớn hơn, cân nhắc camera với cảm biến 1" (ví dụ: Basler acA4112-30um)
 
-### 13.2 Độ Sâu Trường Ảnh (DoF)
+### 14.2 Độ Sâu Trường Ảnh (DoF)
 
 ```
 DoF của lens: ±14.8mm @F16
@@ -812,7 +812,7 @@ Với F/6.5 (mặc định):
 ➜ Vật thể cần nằm trong khoảng ±2.4mm quanh mặt phẳng tiêu cự
 ```
 
-### 13.3 Checklist Trước Khi Triển Khai
+### 14.3 Checklist Trước Khi Triển Khai
 
 - [ ] Xác nhận kích thước lỗ thực tế nằm trong FOV (29.7×21.9mm)
 - [ ] Kiểm tra độ dày vật thể < DoF (±2.4mm)
@@ -822,7 +822,7 @@ Với F/6.5 (mặc định):
 
 ---
 
-**Document Version:** 2.0
+**Document Version:** 2.1
 **Created Date:** 2025-12-26
 **Last Updated:** 2025-12-26
 **Author:** Claude AI Assistant
@@ -839,3 +839,4 @@ Với F/6.5 (mặc định):
 | 1.2 | 2025-12-26 | Changed lighting mode to Continuous (non-strobe), added motion blur calculations |
 | 1.3 | 2025-12-26 | Added automatic circle detection algorithm, detailed processing pipeline |
 | 2.0 | 2025-12-26 | Added User Stories, Use Cases, Sequence Diagram - PRD Complete |
+| 2.1 | 2025-12-26 | Fixed section numbering (Section 4 duplicate), unified FOV range (0.5mm~20mm) |

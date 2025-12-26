@@ -588,6 +588,121 @@ class IVisualizerService(Protocol):
         ...
 ```
 
+### 6.4 PLC/IO Interface
+
+#### 6.4.1 Interface Specification
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           PLC/IO INTERFACE                                   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────────┐         ┌─────────────────┐         ┌──────────────┐  │
+│  │   Vision PC     │◄───────►│   I/O Card      │◄───────►│     PLC      │  │
+│  │                 │  API    │  (NI/Advantech) │  24V DC │              │  │
+│  └─────────────────┘         └─────────────────┘         └──────────────┘  │
+│                                                                             │
+│  Digital Inputs (từ PLC):                                                   │
+│  ┌─────────┬───────────────────────────────────────────────────────────┐   │
+│  │ DI-0    │ Trigger Signal (Rising Edge) - Vật đến vùng kiểm tra      │   │
+│  │ DI-1    │ System Enable - PLC cho phép hệ thống hoạt động           │   │
+│  │ DI-2    │ Recipe Select Bit 0                                        │   │
+│  │ DI-3    │ Recipe Select Bit 1                                        │   │
+│  └─────────┴───────────────────────────────────────────────────────────┘   │
+│                                                                             │
+│  Digital Outputs (đến PLC):                                                 │
+│  ┌─────────┬───────────────────────────────────────────────────────────┐   │
+│  │ DO-0    │ Result OK - Sản phẩm đạt yêu cầu                          │   │
+│  │ DO-1    │ Result NG - Sản phẩm không đạt                            │   │
+│  │ DO-2    │ System Ready - Hệ thống sẵn sàng nhận trigger             │   │
+│  │ DO-3    │ System Error - Có lỗi hệ thống                            │   │
+│  │ DO-4    │ Busy - Đang xử lý                                          │   │
+│  └─────────┴───────────────────────────────────────────────────────────┘   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### 6.4.2 IO Service Interface
+
+```python
+class IIOService(Protocol):
+    """Interface for PLC/IO communication"""
+
+    def initialize(self, config: IOConfig) -> bool:
+        """Initialize I/O card connection"""
+        ...
+
+    def read_input(self, channel: int) -> bool:
+        """Read digital input state"""
+        ...
+
+    def write_output(self, channel: int, state: bool) -> None:
+        """Write digital output state"""
+        ...
+
+    def set_result(self, ok: bool) -> None:
+        """Set OK/NG result outputs"""
+        ...
+
+    def set_ready(self, ready: bool) -> None:
+        """Set system ready signal"""
+        ...
+
+    def set_error(self, error: bool) -> None:
+        """Set system error signal"""
+        ...
+
+    def register_trigger_callback(self, callback: Callable) -> None:
+        """Register callback for trigger signal"""
+        ...
+
+    def cleanup(self) -> None:
+        """Release I/O resources"""
+        ...
+```
+
+#### 6.4.3 IO Configuration
+
+```python
+@dataclass
+class IOConfig:
+    """I/O card configuration"""
+    device_name: str = "Dev1"          # NI-DAQmx device name
+    trigger_channel: int = 0           # DI channel for trigger
+    enable_channel: int = 1            # DI channel for system enable
+    ok_channel: int = 0                # DO channel for OK signal
+    ng_channel: int = 1                # DO channel for NG signal
+    ready_channel: int = 2             # DO channel for ready signal
+    error_channel: int = 3             # DO channel for error signal
+    busy_channel: int = 4              # DO channel for busy signal
+    trigger_debounce_ms: int = 10      # Trigger debounce time
+    result_pulse_ms: int = 100         # OK/NG pulse duration
+```
+
+#### 6.4.4 Timing Diagram
+
+```
+Trigger ─────┐     ┌─────────────────────────────────────────────────
+(DI-0)       └─────┘
+             │
+             │<─── Rising Edge Detection
+             │
+Busy    ─────┴─────────────────────────┬───────────────────────────────
+(DO-4)                                 │
+                                       │<─── Processing Complete
+                                       │
+Ready   ─────┬─────────────────────────┴───────────────────────────────
+(DO-2)       │
+             │<─── System processes image
+             │
+OK/NG   ─────────────────────────────────┐     ┌───────────────────────
+(DO-0/1)                                 └─────┘
+                                         │<───>│ Pulse 100ms
+
+Timeline: |<── Grab ──>|<── Process ──>|<── Output ──>|
+           ~30ms         ~100ms          ~100ms
+```
+
 ---
 
 ## 7. Configuration Management
@@ -725,6 +840,191 @@ BaseApplicationError
    - Clear old frames kịp thời
    - Limit history/log size
 
+### 9.3 Threading Model
+
+#### 9.3.1 Thread Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           THREADING MODEL                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │                         MAIN THREAD (UI)                               │  │
+│  │  - Tkinter mainloop                                                    │  │
+│  │  - User interaction handling                                           │  │
+│  │  - Display updates (via queue)                                         │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│           │                           ▲                                     │
+│           │ Commands                  │ Results (Queue)                     │
+│           ▼                           │                                     │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │                      CAMERA THREAD (Daemon)                            │  │
+│  │  - Frame grabbing loop                                                 │  │
+│  │  - Frame buffer management                                             │  │
+│  │  - Puts frames to processing queue                                     │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│           │                                                                 │
+│           │ Frames (Queue)                                                  │
+│           ▼                                                                 │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │                     PROCESSING THREAD (Daemon)                         │  │
+│  │  - Circle detection                                                    │  │
+│  │  - Measurement calculation                                             │  │
+│  │  - Tolerance checking                                                  │  │
+│  │  - Puts results to display queue                                       │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│           │                                                                 │
+│           │ Results                                                         │
+│           ▼                                                                 │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │                        IO THREAD (Daemon)                              │  │
+│  │  - Trigger signal monitoring                                           │  │
+│  │  - Output signal control                                               │  │
+│  │  - PLC communication                                                   │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### 9.3.2 Thread Communication
+
+```python
+# Queue definitions
+frame_queue: Queue[np.ndarray]       # Camera → Processing (maxsize=2)
+result_queue: Queue[ProcessResult]   # Processing → UI (maxsize=5)
+io_command_queue: Queue[IOCommand]   # Processing → IO (maxsize=10)
+
+# Thread-safe events
+stop_event: threading.Event          # Signal to stop all threads
+camera_ready: threading.Event        # Camera connected and ready
+trigger_event: threading.Event       # External trigger received
+```
+
+#### 9.3.3 Thread Lifecycle
+
+```python
+class ThreadManager:
+    """Manages application threads"""
+
+    def __init__(self):
+        self.camera_thread: Optional[threading.Thread] = None
+        self.processing_thread: Optional[threading.Thread] = None
+        self.io_thread: Optional[threading.Thread] = None
+        self.stop_event = threading.Event()
+
+    def start_threads(self) -> None:
+        """Start all worker threads"""
+        self.stop_event.clear()
+
+        self.camera_thread = threading.Thread(
+            target=self._camera_loop,
+            daemon=True,
+            name="CameraThread"
+        )
+
+        self.processing_thread = threading.Thread(
+            target=self._processing_loop,
+            daemon=True,
+            name="ProcessingThread"
+        )
+
+        self.io_thread = threading.Thread(
+            target=self._io_loop,
+            daemon=True,
+            name="IOThread"
+        )
+
+        self.camera_thread.start()
+        self.processing_thread.start()
+        self.io_thread.start()
+
+    def stop_threads(self) -> None:
+        """Stop all worker threads gracefully"""
+        self.stop_event.set()
+
+        # Wait for threads to finish (with timeout)
+        if self.camera_thread:
+            self.camera_thread.join(timeout=2.0)
+        if self.processing_thread:
+            self.processing_thread.join(timeout=2.0)
+        if self.io_thread:
+            self.io_thread.join(timeout=2.0)
+
+    def _camera_loop(self) -> None:
+        """Camera grab loop"""
+        while not self.stop_event.is_set():
+            frame = self.camera.grab_frame()
+            if frame is not None:
+                try:
+                    self.frame_queue.put(frame, timeout=0.1)
+                except Full:
+                    pass  # Drop frame if queue is full
+
+    def _processing_loop(self) -> None:
+        """Image processing loop"""
+        while not self.stop_event.is_set():
+            try:
+                frame = self.frame_queue.get(timeout=0.1)
+                result = self.detector.detect(frame)
+                self.result_queue.put(result, timeout=0.1)
+            except Empty:
+                continue
+
+    def _io_loop(self) -> None:
+        """I/O monitoring loop"""
+        while not self.stop_event.is_set():
+            # Monitor trigger input
+            if self.io_service.check_trigger():
+                self.trigger_event.set()
+
+            # Process output commands
+            try:
+                cmd = self.io_command_queue.get(timeout=0.01)
+                self.io_service.execute(cmd)
+            except Empty:
+                continue
+```
+
+#### 9.3.4 Thread Safety Considerations
+
+| Resource | Protection Mechanism | Notes |
+|----------|---------------------|-------|
+| Camera object | Single thread access | Only camera thread accesses |
+| Configuration | RLock | Read often, write rarely |
+| Frame buffers | Queue | Thread-safe handoff |
+| UI widgets | Queue + after() | Tkinter requires main thread |
+| I/O card | Single thread access | Only IO thread accesses |
+| Log file | Logging module | Built-in thread safety |
+
+#### 9.3.5 Synchronization Patterns
+
+```python
+# Pattern 1: Producer-Consumer (Camera → Processing)
+def camera_producer():
+    while running:
+        frame = camera.grab()
+        frame_queue.put(frame)  # Blocks if full
+
+def processing_consumer():
+    while running:
+        frame = frame_queue.get()  # Blocks if empty
+        result = process(frame)
+
+# Pattern 2: Event-based Trigger
+def wait_for_trigger():
+    trigger_event.wait(timeout=1.0)
+    if trigger_event.is_set():
+        trigger_event.clear()
+        return True
+    return False
+
+# Pattern 3: UI Update from Worker Thread
+def update_ui_safely(widget, data):
+    # Schedule update on main thread
+    widget.after(0, lambda: widget.update(data))
+```
+
 ---
 
 ## 10. Testing Strategy
@@ -797,10 +1097,10 @@ python src/main.py
 
 ---
 
-**Document Version:** 1.0
+**Document Version:** 1.1
 **Created Date:** 2025-12-26
 **Author:** Claude AI Assistant
-**Status:** Draft
+**Status:** Ready for Review
 
 ---
 
@@ -809,3 +1109,4 @@ python src/main.py
 | Version | Date | Changes |
 |---------|------|---------|
 | 1.0 | 2025-12-26 | Initial architecture design |
+| 1.1 | 2025-12-26 | Added PLC/IO Interface (6.4), Threading Model (9.3) |
