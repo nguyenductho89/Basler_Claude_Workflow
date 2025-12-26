@@ -502,7 +502,7 @@ class MainWindow:
     def _update_recipe_submenu(self) -> None:
         """Update the recipe submenu with available recipes"""
         self._recipe_submenu.delete(0, tk.END)
-        recipes = self._recipe_service.list_recipes()
+        recipes = self._recipe_service.recipe_names
 
         if not recipes:
             self._recipe_submenu.add_command(label="(No recipes)", state=tk.DISABLED)
