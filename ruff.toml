@@ -1,0 +1,63 @@
+# Ruff configuration for Circle Measurement System
+
+# Target Python 3.11
+target-version = "py311"
+
+# Line length
+line-length = 120
+
+# Exclude directories
+exclude = [
+    ".git",
+    ".venv",
+    "__pycache__",
+    "build",
+    "dist",
+    "*.egg-info",
+]
+
+[lint]
+# Enable rules - start with essential ones
+select = [
+    "E",      # pycodestyle errors
+    "F",      # Pyflakes
+    "W",      # pycodestyle warnings
+]
+
+# Ignore specific rules
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "E402",   # module level import not at top
+    "E712",   # comparison to True/False (common in tests)
+    "E722",   # bare except
+    "F401",   # unused imports (many are for type checking or optional deps)
+    "F403",   # star imports
+    "F841",   # local variable assigned but never used
+]
+
+# Allow autofix for all enabled rules
+fixable = ["ALL"]
+unfixable = []
+
+# Allow unused variables when underscore-prefixed
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[lint.per-file-ignores]
+# Tests can use assert
+"tests/**/*.py" = ["S101"]
+# Init files can have unused imports
+"__init__.py" = ["F401"]
+# Main can have imports for checking
+"src/main.py" = ["F401", "E722"]
+# UI files may have unused imports for Qt signals
+"src/ui/**/*.py" = ["F401"]
+
+[format]
+# Use double quotes
+quote-style = "double"
+
+# Indent with spaces
+indent-style = "space"
+
+# Unix line endings
+line-ending = "auto"
