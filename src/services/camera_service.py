@@ -14,6 +14,12 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+class TriggerMode:
+    """Camera trigger mode constants"""
+    SOFTWARE = "software"
+    HARDWARE = "hardware"
+
+
 class BaslerGigECamera:
     """Service for managing Basler GigE camera connection and frame grabbing"""
 
@@ -23,6 +29,7 @@ class BaslerGigECamera:
         self._is_connected: bool = False
         self._is_grabbing: bool = False
         self._device_info: Optional[Dict] = None
+        self._trigger_mode: str = TriggerMode.SOFTWARE
 
         if PYLON_AVAILABLE:
             self._converter = pylon.ImageFormatConverter()
@@ -43,6 +50,11 @@ class BaslerGigECamera:
     def device_info(self) -> Optional[Dict]:
         """Get connected device info"""
         return self._device_info
+
+    @property
+    def trigger_mode(self) -> str:
+        """Get current trigger mode"""
+        return self._trigger_mode
 
     @staticmethod
     def list_devices() -> List[Dict[str, Any]]:
@@ -134,13 +146,71 @@ class BaslerGigECamera:
             elif hasattr(self._camera, 'ExposureTime'):
                 self._camera.ExposureTime.SetValue(exposure_us)
 
-            # Set software trigger mode
+            # Set software trigger mode by default
             self._camera.TriggerMode.SetValue('Off')
+            self._trigger_mode = TriggerMode.SOFTWARE
 
-            logger.info(f"Camera configured: exposure={exposure_us}us")
+            logger.info(f"Camera configured: exposure={exposure_us}us, trigger=software")
 
         except Exception as e:
             logger.warning(f"Error configuring camera: {e}")
+
+    def set_trigger_mode(self, mode: str) -> bool:
+        """
+        Set camera trigger mode
+
+        Args:
+            mode: TriggerMode.SOFTWARE or TriggerMode.HARDWARE
+
+        Returns:
+            True if successful
+        """
+        if not self._camera or not self._is_connected:
+            logger.warning("Cannot set trigger mode - camera not connected")
+            return False
+
+        try:
+            if mode == TriggerMode.HARDWARE:
+                # Configure for hardware trigger (Line1)
+                self._camera.TriggerMode.SetValue('On')
+                self._camera.TriggerSource.SetValue('Line1')
+                self._camera.TriggerActivation.SetValue('RisingEdge')
+                self._trigger_mode = TriggerMode.HARDWARE
+                logger.info("Hardware trigger mode enabled (Line1, Rising Edge)")
+            else:
+                # Configure for continuous/software mode
+                self._camera.TriggerMode.SetValue('Off')
+                self._trigger_mode = TriggerMode.SOFTWARE
+                logger.info("Software trigger mode enabled (continuous)")
+
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to set trigger mode: {e}")
+            return False
+
+    def execute_software_trigger(self) -> bool:
+        """
+        Execute a software trigger (for testing in hardware trigger mode)
+
+        Returns:
+            True if successful
+        """
+        if not self._camera or not self._is_connected:
+            return False
+
+        try:
+            if self._trigger_mode == TriggerMode.HARDWARE:
+                # Temporarily switch to software trigger for single shot
+                self._camera.TriggerSource.SetValue('Software')
+                self._camera.TriggerSoftware.Execute()
+                # Switch back to hardware trigger
+                self._camera.TriggerSource.SetValue('Line1')
+            logger.debug("Software trigger executed")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to execute software trigger: {e}")
+            return False
 
     def disconnect(self) -> None:
         """Disconnect from camera"""

@@ -2,7 +2,7 @@
 
 # Application info
 APP_NAME = "Circle Measurement System"
-APP_VERSION = "1.0.0"
+APP_VERSION = "2.0.0"
 
 # UI constants
 WINDOW_WIDTH = 1200

@@ -1,5 +1,5 @@
 """Services layer - Business logic"""
-from .camera_service import BaslerGigECamera
+from .camera_service import BaslerGigECamera, TriggerMode
 from .detector_service import CircleDetector
 from .visualizer_service import CircleVisualizer
 from .calibration_service import CalibrationService
@@ -10,6 +10,7 @@ from .io_service import IOService
 
 __all__ = [
     'BaslerGigECamera',
+    'TriggerMode',
     'CircleDetector',
     'CircleVisualizer',
     'CalibrationService',
