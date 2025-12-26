@@ -1,4 +1,5 @@
 """Tests for RecipeService"""
+
 import pytest
 from src.services.recipe_service import RecipeService
 from src.domain.recipe import Recipe
@@ -28,7 +29,7 @@ class TestRecipeService:
             description="Test description",
             detection_config=default_detection_config,
             tolerance_config=default_tolerance_config,
-            pixel_to_mm=0.00644
+            pixel_to_mm=0.00644,
         )
         assert recipe.name == "Test Recipe"
         assert recipe.description == "Test description"
@@ -41,10 +42,7 @@ class TestRecipeService:
         tolerance = ToleranceConfig(enabled=True, nominal_mm=10.0)
 
         recipe = recipe_service.create_recipe(
-            name="CustomConfig",
-            detection_config=detection,
-            tolerance_config=tolerance,
-            pixel_to_mm=0.01
+            name="CustomConfig", detection_config=detection, tolerance_config=tolerance, pixel_to_mm=0.01
         )
 
         assert recipe.detection_config.min_diameter_mm == 5.0
@@ -57,7 +55,7 @@ class TestRecipeService:
             name="SaveTest",
             detection_config=default_detection_config,
             tolerance_config=default_tolerance_config,
-            pixel_to_mm=0.00644
+            pixel_to_mm=0.00644,
         )
         assert recipe_service.save_recipe(recipe)
 
@@ -77,7 +75,7 @@ class TestRecipeService:
                 name=name,
                 detection_config=default_detection_config,
                 tolerance_config=default_tolerance_config,
-                pixel_to_mm=0.00644
+                pixel_to_mm=0.00644,
             )
             recipe_service.save_recipe(recipe)
 
@@ -93,7 +91,7 @@ class TestRecipeService:
             name="ToDelete",
             detection_config=default_detection_config,
             tolerance_config=default_tolerance_config,
-            pixel_to_mm=0.00644
+            pixel_to_mm=0.00644,
         )
         recipe_service.save_recipe(recipe)
         assert "ToDelete" in recipe_service.recipe_names
@@ -111,7 +109,7 @@ class TestRecipeService:
             name="ExportTest",
             detection_config=default_detection_config,
             tolerance_config=default_tolerance_config,
-            pixel_to_mm=0.00644
+            pixel_to_mm=0.00644,
         )
         recipe_service.save_recipe(recipe)
 
@@ -126,7 +124,7 @@ class TestRecipeService:
             name="ImportTest",
             detection_config=default_detection_config,
             tolerance_config=default_tolerance_config,
-            pixel_to_mm=0.00644
+            pixel_to_mm=0.00644,
         )
         recipe_service.save_recipe(recipe)
         export_path = tmp_path / "to_import.json"
@@ -144,7 +142,7 @@ class TestRecipeService:
             description="Original",
             detection_config=default_detection_config,
             tolerance_config=default_tolerance_config,
-            pixel_to_mm=0.00644
+            pixel_to_mm=0.00644,
         )
         recipe_service.save_recipe(recipe1)
 
@@ -153,7 +151,7 @@ class TestRecipeService:
             description="Updated",
             detection_config=default_detection_config,
             tolerance_config=default_tolerance_config,
-            pixel_to_mm=0.00644
+            pixel_to_mm=0.00644,
         )
         recipe_service.save_recipe(recipe2)
 

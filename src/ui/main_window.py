@@ -1,4 +1,5 @@
 """Main Window - Primary application window with multi-threading support"""
+
 import tkinter as tk
 from tkinter import ttk, messagebox
 import logging
@@ -18,10 +19,14 @@ from ..domain.entities import CircleResult, CalibrationData
 from ..domain.enums import MeasureStatus
 from ..domain.recipe import Recipe
 from ..utils.constants import (
-    APP_NAME, APP_VERSION,
-    WINDOW_WIDTH, WINDOW_HEIGHT,
-    VIDEO_WIDTH, VIDEO_HEIGHT,
-    DEFAULT_EXPOSURE_US, UI_UPDATE_INTERVAL
+    APP_NAME,
+    APP_VERSION,
+    WINDOW_WIDTH,
+    WINDOW_HEIGHT,
+    VIDEO_WIDTH,
+    VIDEO_HEIGHT,
+    DEFAULT_EXPOSURE_US,
+    UI_UPDATE_INTERVAL,
 )
 from .panels.video_canvas import VideoCanvas
 from .panels.camera_panel import CameraPanel
@@ -55,11 +60,7 @@ class MainWindow:
         self._io_service = IOService()
 
         # Thread manager
-        self._thread_manager = ThreadManager(
-            self._camera,
-            self._detector,
-            self._visualizer
-        )
+        self._thread_manager = ThreadManager(self._camera, self._detector, self._visualizer)
 
         # Apply calibration to detector
         self._apply_calibration()
@@ -117,11 +118,7 @@ class MainWindow:
         tools_menu.add_command(label="Reset Statistics", command=self._reset_statistics)
         tools_menu.add_separator()
         self._save_ng_var = tk.BooleanVar(value=False)
-        tools_menu.add_checkbutton(
-            label="Save NG Images",
-            variable=self._save_ng_var,
-            command=self._toggle_save_ng
-        )
+        tools_menu.add_checkbutton(label="Save NG Images", variable=self._save_ng_var, command=self._toggle_save_ng)
 
         # Help menu
         help_menu = tk.Menu(menubar, tearoff=0)
@@ -151,10 +148,7 @@ class MainWindow:
         scrollbar = ttk.Scrollbar(right_outer, orient=tk.VERTICAL, command=canvas.yview)
         scrollable_frame = ttk.Frame(canvas)
 
-        scrollable_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
+        scrollable_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
 
         canvas.create_window((0, 0), window=scrollable_frame, anchor=tk.NW)
         canvas.configure(yscrollcommand=scrollbar.set)
@@ -169,7 +163,7 @@ class MainWindow:
             right_frame,
             on_connect=self._on_camera_connect,
             on_disconnect=self._on_camera_disconnect,
-            on_refresh=self._on_camera_refresh
+            on_refresh=self._on_camera_refresh,
         )
         self.camera_panel.pack(fill=tk.X, pady=(0, 10))
 
@@ -186,14 +180,11 @@ class MainWindow:
             to=10000,
             variable=self.exposure_var,
             orient=tk.HORIZONTAL,
-            command=self._on_exposure_change
+            command=self._on_exposure_change,
         )
         self.exposure_scale.pack(fill=tk.X, pady=5)
 
-        self.exposure_label = ttk.Label(
-            exposure_frame,
-            text=f"{DEFAULT_EXPOSURE_US:.1f} us"
-        )
+        self.exposure_label = ttk.Label(exposure_frame, text=f"{DEFAULT_EXPOSURE_US:.1f} us")
         self.exposure_label.pack(anchor=tk.W)
 
         # Calibration info
@@ -203,11 +194,7 @@ class MainWindow:
         self.calib_label = ttk.Label(calib_frame, text="")
         self.calib_label.pack(anchor=tk.W)
 
-        self.calib_btn = ttk.Button(
-            calib_frame,
-            text="Open Calibration...",
-            command=self._open_calibration_dialog
-        )
+        self.calib_btn = ttk.Button(calib_frame, text="Open Calibration...", command=self._open_calibration_dialog)
         self.calib_btn.pack(anchor=tk.W, pady=(5, 0))
 
         self._update_calibration_label()
@@ -221,15 +208,13 @@ class MainWindow:
             detect_toggle_frame,
             text="Enable Circle Detection",
             variable=self.detection_var,
-            command=self._on_detection_toggle
+            command=self._on_detection_toggle,
         )
         self.detection_check.pack(anchor=tk.W)
 
         # Control panel (Detection settings)
         self.control_panel = ControlPanel(
-            right_frame,
-            on_config_change=self._on_config_change,
-            on_tolerance_change=self._on_tolerance_change
+            right_frame, on_config_change=self._on_config_change, on_tolerance_change=self._on_tolerance_change
         )
         self.control_panel.pack(fill=tk.X, pady=(0, 10))
 
@@ -246,32 +231,17 @@ class MainWindow:
         self.statistics_panel.pack(fill=tk.X, pady=(0, 10))
 
         # IO Panel
-        self.io_panel = IOPanel(
-            right_frame,
-            self._io_service,
-            on_trigger=self._on_io_trigger
-        )
+        self.io_panel = IOPanel(right_frame, self._io_service, on_trigger=self._on_io_trigger)
         self.io_panel.pack(fill=tk.X, pady=(0, 10))
 
         # Status bar with FPS
         status_frame = ttk.Frame(self._root)
         status_frame.pack(fill=tk.X, side=tk.BOTTOM)
 
-        self.status_bar = ttk.Label(
-            status_frame,
-            text="Ready",
-            relief=tk.SUNKEN,
-            padding=5
-        )
+        self.status_bar = ttk.Label(status_frame, text="Ready", relief=tk.SUNKEN, padding=5)
         self.status_bar.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
-        self.fps_label = ttk.Label(
-            status_frame,
-            text="FPS: --",
-            relief=tk.SUNKEN,
-            padding=5,
-            width=15
-        )
+        self.fps_label = ttk.Label(status_frame, text="FPS: --", relief=tk.SUNKEN, padding=5, width=15)
         self.fps_label.pack(side=tk.RIGHT)
 
     def _setup_bindings(self) -> None:
@@ -298,12 +268,7 @@ class MainWindow:
 
     def _open_calibration_dialog(self) -> None:
         """Open calibration dialog"""
-        CalibrationDialog(
-            self._root,
-            self._calibration,
-            self._get_current_frame,
-            self._on_calibration_complete
-        )
+        CalibrationDialog(self._root, self._calibration, self._get_current_frame, self._on_calibration_complete)
 
     def _get_current_frame(self):
         """Get current frame for calibration"""
@@ -437,11 +402,7 @@ class MainWindow:
                     # Save NG images if enabled
                     if self._save_ng_images and ng_count > 0:
                         ng_circles = [c for c in result.circles if c.status == MeasureStatus.NG]
-                        self._image_saver.save_ng_image(
-                            result.frame,
-                            ng_circles,
-                            result.display_frame
-                        )
+                        self._image_saver.save_ng_image(result.frame, ng_circles, result.display_frame)
 
                     # Send IO result to PLC
                     overall_ok = ng_count == 0
@@ -450,6 +411,7 @@ class MainWindow:
                 # Update FPS counter
                 self._frame_count += 1
                 import time
+
                 current_time = time.time()
                 if self._last_fps_time == 0:
                     self._last_fps_time = current_time
@@ -496,7 +458,7 @@ class MainWindow:
             "- Production statistics\n"
             "- PLC/IO integration\n\n"
             "Camera: Basler acA4600-7gc\n"
-            "Lens: Telecentric HK-YC10-80H"
+            "Lens: Telecentric HK-YC10-80H",
         )
 
     def _update_recipe_submenu(self) -> None:
@@ -509,17 +471,12 @@ class MainWindow:
         else:
             for recipe_name in recipes:
                 self._recipe_submenu.add_command(
-                    label=recipe_name,
-                    command=lambda name=recipe_name: self._load_recipe(name)
+                    label=recipe_name, command=lambda name=recipe_name: self._load_recipe(name)
                 )
 
     def _open_recipe_dialog(self) -> None:
         """Open recipe management dialog"""
-        RecipeDialog(
-            self._root,
-            self._recipe_service,
-            self._on_recipe_load
-        )
+        RecipeDialog(self._root, self._recipe_service, self._on_recipe_load)
         self._update_recipe_submenu()
 
     def _on_recipe_load(self, recipe: Recipe) -> None:
@@ -562,26 +519,21 @@ class MainWindow:
     def _save_current_as_recipe(self) -> None:
         """Save current settings as a new recipe"""
         from tkinter import simpledialog
-        name = simpledialog.askstring(
-            "Save Recipe",
-            "Enter recipe name:",
-            parent=self._root
-        )
+
+        name = simpledialog.askstring("Save Recipe", "Enter recipe name:", parent=self._root)
         if not name:
             return
 
-        description = simpledialog.askstring(
-            "Save Recipe",
-            "Enter recipe description (optional):",
-            parent=self._root
-        ) or ""
+        description = (
+            simpledialog.askstring("Save Recipe", "Enter recipe description (optional):", parent=self._root) or ""
+        )
 
         recipe = self._recipe_service.create_recipe(
             name=name,
             description=description,
             detection_config=self._detector.config,
             tolerance_config=self._tolerance_config,
-            pixel_to_mm=self._calibration.pixel_to_mm
+            pixel_to_mm=self._calibration.pixel_to_mm,
         )
 
         if self._recipe_service.save_recipe(recipe):
@@ -607,7 +559,7 @@ class MainWindow:
         filepath = filedialog.asksaveasfilename(
             defaultextension=".csv",
             filetypes=[("CSV files", "*.csv")],
-            initialfile=f"statistics_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+            initialfile=f"statistics_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
         )
 
         if not filepath:
@@ -615,7 +567,7 @@ class MainWindow:
 
         try:
             stats = self.statistics_panel.get_statistics()
-            with open(filepath, 'w', newline='', encoding='utf-8') as f:
+            with open(filepath, "w", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f)
                 writer.writerow(["Metric", "Value"])
                 writer.writerow(["Total Inspections", stats["total_inspections"]])

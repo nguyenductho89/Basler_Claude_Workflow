@@ -1,4 +1,5 @@
 """Calibration Service - Pixel to mm calibration management"""
+
 import json
 import logging
 from datetime import datetime
@@ -47,18 +48,11 @@ class CalibrationService:
             raise ValueError("Pixel to mm ratio must be positive")
 
         self._calibration_data = CalibrationData(
-            pixel_to_mm=value,
-            calibrated_at=datetime.now(),
-            reference_size_mm=0,
-            reference_size_px=0
+            pixel_to_mm=value, calibrated_at=datetime.now(), reference_size_mm=0, reference_size_px=0
         )
         logger.info(f"Pixel to mm ratio set to: {value:.6f}")
 
-    def calibrate(
-        self,
-        reference_size_mm: float,
-        reference_size_px: float
-    ) -> CalibrationData:
+    def calibrate(self, reference_size_mm: float, reference_size_px: float) -> CalibrationData:
         """
         Perform calibration using reference measurement
 
@@ -74,23 +68,14 @@ class CalibrationService:
         if reference_size_mm <= 0:
             raise ValueError("Reference size in mm must be positive")
 
-        self._calibration_data = CalibrationData.create(
-            reference_mm=reference_size_mm,
-            reference_px=reference_size_px
-        )
+        self._calibration_data = CalibrationData.create(reference_mm=reference_size_mm, reference_px=reference_size_px)
 
         self._save_calibration()
-        logger.info(
-            f"Calibration complete: {self._calibration_data.pixel_to_mm:.6f} mm/px"
-        )
+        logger.info(f"Calibration complete: {self._calibration_data.pixel_to_mm:.6f} mm/px")
 
         return self._calibration_data
 
-    def calibrate_from_circle(
-        self,
-        frame: np.ndarray,
-        known_diameter_mm: float
-    ) -> Optional[CalibrationData]:
+    def calibrate_from_circle(self, frame: np.ndarray, known_diameter_mm: float) -> Optional[CalibrationData]:
         """
         Auto-calibrate from a detected circle
 
@@ -110,15 +95,9 @@ class CalibrationService:
 
         diameter_px = circle_px[2] * 2  # radius to diameter
 
-        return self.calibrate(
-            reference_size_mm=known_diameter_mm,
-            reference_size_px=diameter_px
-        )
+        return self.calibrate(reference_size_mm=known_diameter_mm, reference_size_px=diameter_px)
 
-    def _detect_calibration_circle(
-        self,
-        frame: np.ndarray
-    ) -> Optional[Tuple[float, float, float]]:
+    def _detect_calibration_circle(self, frame: np.ndarray) -> Optional[Tuple[float, float, float]]:
         """
         Detect the largest circle in frame for calibration
 
@@ -155,7 +134,7 @@ class CalibrationService:
                 continue
 
             # Check circularity
-            circularity = 4 * np.pi * area / (perimeter ** 2)
+            circularity = 4 * np.pi * area / (perimeter**2)
 
             if circularity > 0.8 and area > best_area:
                 (cx, cy), radius = cv2.minEnclosingCircle(contour)
@@ -176,10 +155,10 @@ class CalibrationService:
                 "pixel_to_mm": self._calibration_data.pixel_to_mm,
                 "calibrated_at": self._calibration_data.calibrated_at.isoformat(),
                 "reference_size_mm": self._calibration_data.reference_size_mm,
-                "reference_size_px": self._calibration_data.reference_size_px
+                "reference_size_px": self._calibration_data.reference_size_px,
             }
 
-            with open(self._config_path, 'w') as f:
+            with open(self._config_path, "w") as f:
                 json.dump(data, f, indent=2)
 
             logger.info(f"Calibration saved to {self._config_path}")
@@ -194,19 +173,17 @@ class CalibrationService:
             return
 
         try:
-            with open(self._config_path, 'r') as f:
+            with open(self._config_path, "r") as f:
                 data = json.load(f)
 
             self._calibration_data = CalibrationData(
                 pixel_to_mm=data["pixel_to_mm"],
                 calibrated_at=datetime.fromisoformat(data["calibrated_at"]),
                 reference_size_mm=data["reference_size_mm"],
-                reference_size_px=data["reference_size_px"]
+                reference_size_px=data["reference_size_px"],
             )
 
-            logger.info(
-                f"Calibration loaded: {self._calibration_data.pixel_to_mm:.6f} mm/px"
-            )
+            logger.info(f"Calibration loaded: {self._calibration_data.pixel_to_mm:.6f} mm/px")
 
         except Exception as e:
             logger.error(f"Failed to load calibration: {e}")
@@ -225,11 +202,7 @@ class CalibrationService:
     def get_info(self) -> dict:
         """Get calibration information"""
         if not self._calibration_data:
-            return {
-                "calibrated": False,
-                "pixel_to_mm": DetectionConfig().pixel_to_mm,
-                "source": "default"
-            }
+            return {"calibrated": False, "pixel_to_mm": DetectionConfig().pixel_to_mm, "source": "default"}
 
         return {
             "calibrated": True,
@@ -237,5 +210,5 @@ class CalibrationService:
             "calibrated_at": self._calibration_data.calibrated_at.strftime("%Y-%m-%d %H:%M:%S"),
             "reference_mm": self._calibration_data.reference_size_mm,
             "reference_px": self._calibration_data.reference_size_px,
-            "source": str(self._config_path)
+            "source": str(self._config_path),
         }

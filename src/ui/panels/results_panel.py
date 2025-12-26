@@ -1,4 +1,5 @@
 """Results Panel - Display detection results"""
+
 import tkinter as tk
 from tkinter import ttk
 from typing import List
@@ -104,13 +105,8 @@ class ResultsPanel(ttk.LabelFrame):
             self.tree.insert(
                 "",
                 tk.END,
-                values=(
-                    circle.hole_id,
-                    f"{circle.diameter_mm:.3f}",
-                    f"{circle.circularity:.3f}",
-                    status_str
-                ),
-                tags=(tag,)
+                values=(circle.hole_id, f"{circle.diameter_mm:.3f}", f"{circle.circularity:.3f}", status_str),
+                tags=(tag,),
             )
 
     def clear(self) -> None:
@@ -131,9 +127,4 @@ class ResultsPanel(ttk.LabelFrame):
         ok_count = sum(1 for c in self._circles if c.status == MeasureStatus.OK)
         ng_count = sum(1 for c in self._circles if c.status == MeasureStatus.NG)
 
-        return {
-            "total": total,
-            "ok": ok_count,
-            "ng": ng_count,
-            "ok_rate": ok_count / total if total > 0 else 0.0
-        }
+        return {"total": total, "ok": ok_count, "ng": ng_count, "ok_rate": ok_count / total if total > 0 else 0.0}

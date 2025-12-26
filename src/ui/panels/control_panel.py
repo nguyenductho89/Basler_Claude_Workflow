@@ -1,4 +1,5 @@
 """Control Panel - Detection and display settings"""
+
 import tkinter as tk
 from tkinter import ttk
 from typing import Callable, Optional
@@ -16,7 +17,7 @@ class ControlPanel(ttk.LabelFrame):
         self,
         parent,
         on_config_change: Optional[Callable[[DetectionConfig], None]] = None,
-        on_tolerance_change: Optional[Callable[[ToleranceConfig], None]] = None
+        on_tolerance_change: Optional[Callable[[ToleranceConfig], None]] = None,
     ):
         super().__init__(parent, text="Detection Settings", padding=10)
 
@@ -38,30 +39,33 @@ class ControlPanel(ttk.LabelFrame):
         self._create_slider(
             detect_frame,
             "Min Diameter (mm):",
-            0.5, 20.0,
+            0.5,
+            20.0,
             self._config.min_diameter_mm,
             self._on_min_diameter_change,
-            "min_diameter"
+            "min_diameter",
         )
 
         # Max diameter
         self._create_slider(
             detect_frame,
             "Max Diameter (mm):",
-            1.0, 50.0,
+            1.0,
+            50.0,
             self._config.max_diameter_mm,
             self._on_max_diameter_change,
-            "max_diameter"
+            "max_diameter",
         )
 
         # Min circularity
         self._create_slider(
             detect_frame,
             "Min Circularity:",
-            0.5, 1.0,
+            0.5,
+            1.0,
             self._config.min_circularity,
             self._on_circularity_change,
-            "circularity"
+            "circularity",
         )
 
         # Blur kernel
@@ -71,11 +75,7 @@ class ControlPanel(ttk.LabelFrame):
         blur_frame.pack(fill=tk.X, pady=2)
         for val in [3, 5, 7, 9]:
             ttk.Radiobutton(
-                blur_frame,
-                text=str(val),
-                value=val,
-                variable=self.blur_var,
-                command=self._on_blur_change
+                blur_frame, text=str(val), value=val, variable=self.blur_var, command=self._on_blur_change
             ).pack(side=tk.LEFT, padx=5)
 
         # Display options section
@@ -84,26 +84,17 @@ class ControlPanel(ttk.LabelFrame):
 
         self.show_contours_var = tk.BooleanVar(value=self._config.show_contours)
         ttk.Checkbutton(
-            display_frame,
-            text="Show Contours",
-            variable=self.show_contours_var,
-            command=self._on_display_change
+            display_frame, text="Show Contours", variable=self.show_contours_var, command=self._on_display_change
         ).pack(anchor=tk.W)
 
         self.show_diameter_var = tk.BooleanVar(value=self._config.show_diameter_line)
         ttk.Checkbutton(
-            display_frame,
-            text="Show Diameter Line",
-            variable=self.show_diameter_var,
-            command=self._on_display_change
+            display_frame, text="Show Diameter Line", variable=self.show_diameter_var, command=self._on_display_change
         ).pack(anchor=tk.W)
 
         self.show_label_var = tk.BooleanVar(value=self._config.show_label)
         ttk.Checkbutton(
-            display_frame,
-            text="Show Labels",
-            variable=self.show_label_var,
-            command=self._on_display_change
+            display_frame, text="Show Labels", variable=self.show_label_var, command=self._on_display_change
         ).pack(anchor=tk.W)
 
         # Tolerance section
@@ -115,7 +106,7 @@ class ControlPanel(ttk.LabelFrame):
             tolerance_frame,
             text="Enable Tolerance Check",
             variable=self.tolerance_enabled_var,
-            command=self._on_tolerance_enable_change
+            command=self._on_tolerance_enable_change,
         ).pack(anchor=tk.W)
 
         # Nominal diameter
@@ -130,7 +121,7 @@ class ControlPanel(ttk.LabelFrame):
             increment=0.1,
             textvariable=self.nominal_var,
             width=10,
-            command=self._on_tolerance_value_change
+            command=self._on_tolerance_value_change,
         )
         self.nominal_spinbox.pack(side=tk.RIGHT)
 
@@ -146,19 +137,12 @@ class ControlPanel(ttk.LabelFrame):
             increment=0.01,
             textvariable=self.tolerance_var,
             width=10,
-            command=self._on_tolerance_value_change
+            command=self._on_tolerance_value_change,
         )
         self.tolerance_spinbox.pack(side=tk.RIGHT)
 
     def _create_slider(
-        self,
-        parent,
-        label: str,
-        from_: float,
-        to: float,
-        initial: float,
-        command: Callable,
-        name: str
+        self, parent, label: str, from_: float, to: float, initial: float, command: Callable, name: str
     ) -> None:
         """Create a labeled slider"""
         ttk.Label(parent, text=label).pack(anchor=tk.W)
@@ -170,12 +154,7 @@ class ControlPanel(ttk.LabelFrame):
         setattr(self, f"{name}_var", var)
 
         scale = ttk.Scale(
-            frame,
-            from_=from_,
-            to=to,
-            variable=var,
-            orient=tk.HORIZONTAL,
-            command=lambda v, cmd=command: cmd(float(v))
+            frame, from_=from_, to=to, variable=var, orient=tk.HORIZONTAL, command=lambda v, cmd=command: cmd(float(v))
         )
         scale.pack(side=tk.LEFT, fill=tk.X, expand=True)
 

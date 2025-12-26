@@ -1,4 +1,5 @@
 """Circle Visualizer Service - Draw detection results on images"""
+
 import logging
 from typing import List, Optional, Tuple
 
@@ -16,12 +17,12 @@ class CircleVisualizer:
     """Service for visualizing circle detection results"""
 
     # Color definitions (BGR)
-    COLOR_OK = (0, 255, 0)       # Green
-    COLOR_NG = (0, 0, 255)       # Red
+    COLOR_OK = (0, 255, 0)  # Green
+    COLOR_NG = (0, 0, 255)  # Red
     COLOR_PARTIAL = (0, 165, 255)  # Orange
-    COLOR_EDGE = (255, 255, 0)   # Cyan
+    COLOR_EDGE = (255, 255, 0)  # Cyan
     COLOR_DIAMETER = (255, 0, 0)  # Blue
-    COLOR_LABEL_BG = (0, 0, 0)   # Black
+    COLOR_LABEL_BG = (0, 0, 0)  # Black
     COLOR_LABEL_TEXT = (255, 255, 255)  # White
 
     def __init__(self, config: Optional[DetectionConfig] = None):
@@ -32,10 +33,7 @@ class CircleVisualizer:
         self._config = config
 
     def draw(
-        self,
-        frame: np.ndarray,
-        circles: List[CircleResult],
-        tolerance: Optional[ToleranceConfig] = None
+        self, frame: np.ndarray, circles: List[CircleResult], tolerance: Optional[ToleranceConfig] = None
     ) -> np.ndarray:
         """
         Draw detection results on frame
@@ -75,11 +73,7 @@ class CircleVisualizer:
 
         return output
 
-    def _get_status_color(
-        self,
-        circle: CircleResult,
-        tolerance: Optional[ToleranceConfig]
-    ) -> Tuple[int, int, int]:
+    def _get_status_color(self, circle: CircleResult, tolerance: Optional[ToleranceConfig]) -> Tuple[int, int, int]:
         """Get color based on circle status and tolerance"""
         if tolerance and tolerance.enabled:
             status = self._check_tolerance(circle, tolerance)
@@ -100,11 +94,7 @@ class CircleVisualizer:
 
         return self.COLOR_EDGE
 
-    def _check_tolerance(
-        self,
-        circle: CircleResult,
-        tolerance: ToleranceConfig
-    ) -> MeasureStatus:
+    def _check_tolerance(self, circle: CircleResult, tolerance: ToleranceConfig) -> MeasureStatus:
         """Check if circle is within tolerance"""
         if not tolerance.enabled:
             return MeasureStatus.OK
@@ -117,12 +107,7 @@ class CircleVisualizer:
         else:
             return MeasureStatus.NG
 
-    def _draw_circle_edge(
-        self,
-        frame: np.ndarray,
-        circle: CircleResult,
-        color: Tuple[int, int, int]
-    ) -> None:
+    def _draw_circle_edge(self, frame: np.ndarray, circle: CircleResult, color: Tuple[int, int, int]) -> None:
         """Draw circle edge"""
         center = (int(circle.center_x), int(circle.center_y))
         radius = int(circle.radius)
@@ -146,12 +131,7 @@ class CircleVisualizer:
         # Center point
         cv2.circle(frame, (cx, cy), 3, self.COLOR_DIAMETER, -1)
 
-    def _draw_label(
-        self,
-        frame: np.ndarray,
-        circle: CircleResult,
-        color: Tuple[int, int, int]
-    ) -> None:
+    def _draw_label(self, frame: np.ndarray, circle: CircleResult, color: Tuple[int, int, int]) -> None:
         """Draw measurement label"""
         # Format label text
         label = f"D={circle.diameter_mm:.3f}mm"
@@ -185,12 +165,7 @@ class CircleVisualizer:
         id_y = int(circle.center_y + 5)
         cv2.putText(frame, id_label, (id_x, id_y), font, 0.4, self.COLOR_LABEL_TEXT, 1)
 
-    def draw_binary_overlay(
-        self,
-        frame: np.ndarray,
-        binary: np.ndarray,
-        alpha: float = 0.3
-    ) -> np.ndarray:
+    def draw_binary_overlay(self, frame: np.ndarray, binary: np.ndarray, alpha: float = 0.3) -> np.ndarray:
         """
         Draw semi-transparent binary overlay
 
@@ -215,10 +190,7 @@ class CircleVisualizer:
         return output
 
     def draw_statistics(
-        self,
-        frame: np.ndarray,
-        circles: List[CircleResult],
-        position: Tuple[int, int] = (10, 30)
+        self, frame: np.ndarray, circles: List[CircleResult], position: Tuple[int, int] = (10, 30)
     ) -> np.ndarray:
         """
         Draw statistics on frame
@@ -246,21 +218,9 @@ class CircleVisualizer:
         ok_count = sum(1 for c in circles if c.status == MeasureStatus.OK)
         ng_count = sum(1 for c in circles if c.status == MeasureStatus.NG)
 
-        lines = [
-            f"Detected: {len(circles)}",
-            f"OK: {ok_count}",
-            f"NG: {ng_count}"
-        ]
+        lines = [f"Detected: {len(circles)}", f"OK: {ok_count}", f"NG: {ng_count}"]
 
         for i, line in enumerate(lines):
-            cv2.putText(
-                output,
-                line,
-                (x, y + i * line_height),
-                font,
-                font_scale,
-                self.COLOR_LABEL_TEXT,
-                thickness
-            )
+            cv2.putText(output, line, (x, y + i * line_height), font, font_scale, self.COLOR_LABEL_TEXT, thickness)
 
         return output

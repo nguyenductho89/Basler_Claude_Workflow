@@ -1,4 +1,5 @@
 """IO Service - PLC/IO communication service"""
+
 import threading
 import time
 import logging
@@ -14,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 class IOCommand(Enum):
     """IO command types"""
+
     SET_OK = "set_ok"
     SET_NG = "set_ng"
     SET_READY = "set_ready"
@@ -26,6 +28,7 @@ class IOCommand(Enum):
 @dataclass
 class IOCommandMessage:
     """IO command message"""
+
     command: IOCommand
     value: bool = True
 
@@ -52,19 +55,8 @@ class IOService:
         self._status_callbacks: List[Callable[[IOStatus], None]] = []
 
         # Simulation state
-        self._sim_inputs = {
-            "trigger": False,
-            "enable": True,
-            "recipe_bit0": False,
-            "recipe_bit1": False
-        }
-        self._sim_outputs = {
-            "ok": False,
-            "ng": False,
-            "ready": False,
-            "error": False,
-            "busy": False
-        }
+        self._sim_inputs = {"trigger": False, "enable": True, "recipe_bit0": False, "recipe_bit1": False}
+        self._sim_outputs = {"ok": False, "ng": False, "ready": False, "error": False, "busy": False}
 
         # Trigger debounce
         self._last_trigger_time: float = 0.0
@@ -147,11 +139,7 @@ class IOService:
                 return False
 
         self._running = True
-        self._thread = threading.Thread(
-            target=self._io_loop,
-            name="IOThread",
-            daemon=True
-        )
+        self._thread = threading.Thread(target=self._io_loop, name="IOThread", daemon=True)
         self._thread.start()
 
         # Set ready signal
@@ -354,7 +342,4 @@ class IOService:
         if self._config.mode == IOMode.SIMULATION:
             self._sim_inputs["trigger"] = True
             # Trigger will be detected in next polling cycle
-            threading.Timer(0.05, lambda: setattr(
-                self, '_sim_inputs',
-                {**self._sim_inputs, "trigger": False}
-            )).start()
+            threading.Timer(0.05, lambda: setattr(self, "_sim_inputs", {**self._sim_inputs, "trigger": False})).start()

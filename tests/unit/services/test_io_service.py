@@ -1,4 +1,5 @@
 """Tests for IOService"""
+
 import pytest
 import time
 from src.services.io_service import IOService

@@ -1,4 +1,5 @@
 """Integration tests for complete measurement workflow - UC-02"""
+
 import pytest
 import numpy as np
 import cv2
@@ -38,7 +39,7 @@ class TestMeasurementWorkflow:
             "visualizer": visualizer,
             "recipe_service": recipe_service,
             "image_saver": image_saver,
-            "io_service": io_service
+            "io_service": io_service,
         }
 
     @pytest.fixture
@@ -142,17 +143,10 @@ class TestMeasurementWorkflow:
             name="Product_A",
             description="Standard 10mm hole product",
             detection_config=DetectionConfig(
-                pixel_to_mm=0.1,
-                min_diameter_mm=5.0,
-                max_diameter_mm=15.0,
-                min_circularity=0.85
+                pixel_to_mm=0.1, min_diameter_mm=5.0, max_diameter_mm=15.0, min_circularity=0.85
             ),
-            tolerance_config=ToleranceConfig(
-                enabled=True,
-                nominal_mm=10.0,
-                tolerance_mm=0.5
-            ),
-            pixel_to_mm=0.1
+            tolerance_config=ToleranceConfig(enabled=True, nominal_mm=10.0, tolerance_mm=0.5),
+            pixel_to_mm=0.1,
         )
         recipe_service.save_recipe(recipe)
 
@@ -293,7 +287,7 @@ class TestIOIntegration:
                 name=f"Recipe_{i}",
                 detection_config=DetectionConfig(),
                 tolerance_config=ToleranceConfig(),
-                pixel_to_mm=0.00644
+                pixel_to_mm=0.00644,
             )
             recipe_service.save_recipe(recipe)
 

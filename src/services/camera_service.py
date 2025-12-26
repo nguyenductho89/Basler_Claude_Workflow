@@ -1,4 +1,5 @@
 """Camera Service - Basler GigE Camera Management"""
+
 import logging
 from typing import List, Dict, Any, Optional
 
@@ -6,6 +7,7 @@ import numpy as np
 
 try:
     from pypylon import pylon
+
     PYLON_AVAILABLE = True
 except ImportError:
     PYLON_AVAILABLE = False
@@ -16,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 class TriggerMode:
     """Camera trigger mode constants"""
+
     SOFTWARE = "software"
     HARDWARE = "hardware"
 
@@ -69,14 +72,16 @@ class BaslerGigECamera:
             device_infos = tlFactory.EnumerateDevices()
 
             for i, dev_info in enumerate(device_infos):
-                devices.append({
-                    'index': i,
-                    'model': dev_info.GetModelName(),
-                    'serial': dev_info.GetSerialNumber(),
-                    'ip': dev_info.GetIpAddress() if hasattr(dev_info, 'GetIpAddress') else 'N/A',
-                    'name': dev_info.GetFriendlyName(),
-                    'vendor': dev_info.GetVendorName()
-                })
+                devices.append(
+                    {
+                        "index": i,
+                        "model": dev_info.GetModelName(),
+                        "serial": dev_info.GetSerialNumber(),
+                        "ip": dev_info.GetIpAddress() if hasattr(dev_info, "GetIpAddress") else "N/A",
+                        "name": dev_info.GetFriendlyName(),
+                        "vendor": dev_info.GetVendorName(),
+                    }
+                )
                 logger.info(f"Found camera: {dev_info.GetFriendlyName()}")
 
         except Exception as e:
@@ -116,9 +121,9 @@ class BaslerGigECamera:
 
             # Store device info
             self._device_info = {
-                'model': devices[device_index].GetModelName(),
-                'serial': devices[device_index].GetSerialNumber(),
-                'name': devices[device_index].GetFriendlyName()
+                "model": devices[device_index].GetModelName(),
+                "serial": devices[device_index].GetSerialNumber(),
+                "name": devices[device_index].GetFriendlyName(),
             }
 
             # Configure camera
@@ -141,13 +146,13 @@ class BaslerGigECamera:
 
         try:
             # Set exposure time
-            if hasattr(self._camera, 'ExposureTimeAbs'):
+            if hasattr(self._camera, "ExposureTimeAbs"):
                 self._camera.ExposureTimeAbs.SetValue(exposure_us)
-            elif hasattr(self._camera, 'ExposureTime'):
+            elif hasattr(self._camera, "ExposureTime"):
                 self._camera.ExposureTime.SetValue(exposure_us)
 
             # Set software trigger mode by default
-            self._camera.TriggerMode.SetValue('Off')
+            self._camera.TriggerMode.SetValue("Off")
             self._trigger_mode = TriggerMode.SOFTWARE
 
             logger.info(f"Camera configured: exposure={exposure_us}us, trigger=software")
@@ -172,14 +177,14 @@ class BaslerGigECamera:
         try:
             if mode == TriggerMode.HARDWARE:
                 # Configure for hardware trigger (Line1)
-                self._camera.TriggerMode.SetValue('On')
-                self._camera.TriggerSource.SetValue('Line1')
-                self._camera.TriggerActivation.SetValue('RisingEdge')
+                self._camera.TriggerMode.SetValue("On")
+                self._camera.TriggerSource.SetValue("Line1")
+                self._camera.TriggerActivation.SetValue("RisingEdge")
                 self._trigger_mode = TriggerMode.HARDWARE
                 logger.info("Hardware trigger mode enabled (Line1, Rising Edge)")
             else:
                 # Configure for continuous/software mode
-                self._camera.TriggerMode.SetValue('Off')
+                self._camera.TriggerMode.SetValue("Off")
                 self._trigger_mode = TriggerMode.SOFTWARE
                 logger.info("Software trigger mode enabled (continuous)")
 
@@ -202,10 +207,10 @@ class BaslerGigECamera:
         try:
             if self._trigger_mode == TriggerMode.HARDWARE:
                 # Temporarily switch to software trigger for single shot
-                self._camera.TriggerSource.SetValue('Software')
+                self._camera.TriggerSource.SetValue("Software")
                 self._camera.TriggerSoftware.Execute()
                 # Switch back to hardware trigger
-                self._camera.TriggerSource.SetValue('Line1')
+                self._camera.TriggerSource.SetValue("Line1")
             logger.debug("Software trigger executed")
             return True
         except Exception as e:
@@ -298,9 +303,9 @@ class BaslerGigECamera:
             return
 
         try:
-            if hasattr(self._camera, 'ExposureTimeAbs'):
+            if hasattr(self._camera, "ExposureTimeAbs"):
                 self._camera.ExposureTimeAbs.SetValue(exposure_us)
-            elif hasattr(self._camera, 'ExposureTime'):
+            elif hasattr(self._camera, "ExposureTime"):
                 self._camera.ExposureTime.SetValue(exposure_us)
             logger.info(f"Exposure set to {exposure_us}us")
         except Exception as e:
@@ -309,19 +314,16 @@ class BaslerGigECamera:
     def get_info(self) -> Dict[str, Any]:
         """Get camera information"""
         if not self._is_connected:
-            return {'connected': False}
+            return {"connected": False}
 
-        info = {
-            'connected': True,
-            **self._device_info
-        }
+        info = {"connected": True, **self._device_info}
 
         if self._camera:
             try:
-                if hasattr(self._camera, 'ExposureTimeAbs'):
-                    info['exposure_us'] = self._camera.ExposureTimeAbs.GetValue()
-                elif hasattr(self._camera, 'ExposureTime'):
-                    info['exposure_us'] = self._camera.ExposureTime.GetValue()
+                if hasattr(self._camera, "ExposureTimeAbs"):
+                    info["exposure_us"] = self._camera.ExposureTimeAbs.GetValue()
+                elif hasattr(self._camera, "ExposureTime"):
+                    info["exposure_us"] = self._camera.ExposureTime.GetValue()
             except:
                 pass
 

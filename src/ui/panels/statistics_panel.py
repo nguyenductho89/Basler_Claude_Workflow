@@ -1,4 +1,5 @@
 """Statistics Panel - Production statistics display"""
+
 import tkinter as tk
 from tkinter import ttk
 from typing import Dict
@@ -19,7 +20,7 @@ class StatisticsPanel(ttk.LabelFrame):
             "total_circles": 0,
             "ok_count": 0,
             "ng_count": 0,
-            "start_time": datetime.now()
+            "start_time": datetime.now(),
         }
 
         self._setup_ui()
@@ -57,16 +58,11 @@ class StatisticsPanel(ttk.LabelFrame):
         rate_frame.pack(fill=tk.X)
 
         ttk.Label(rate_frame, text="OK Rate:").pack(side=tk.LEFT)
-        self.rate_label = ttk.Label(
-            rate_frame,
-            text="---%",
-            font=("Arial", 14, "bold"),
-            foreground="gray"
-        )
+        self.rate_label = ttk.Label(rate_frame, text="---%", font=("Arial", 14, "bold"), foreground="gray")
         self.rate_label.pack(side=tk.LEFT, padx=10)
 
         # Progress bar
-        self.rate_bar = ttk.Progressbar(self, length=200, mode='determinate')
+        self.rate_bar = ttk.Progressbar(self, length=200, mode="determinate")
         self.rate_bar.pack(fill=tk.X, pady=5)
 
         # Runtime display
@@ -117,7 +113,7 @@ class StatisticsPanel(ttk.LabelFrame):
         if total > 0:
             rate = (self._stats["ok_count"] / total) * 100
             self.rate_label.config(text=f"{rate:.1f}%")
-            self.rate_bar['value'] = rate
+            self.rate_bar["value"] = rate
 
             # Color based on rate
             if rate >= 95:
@@ -128,7 +124,7 @@ class StatisticsPanel(ttk.LabelFrame):
                 self.rate_label.config(foreground="red")
         else:
             self.rate_label.config(text="---%", foreground="gray")
-            self.rate_bar['value'] = 0
+            self.rate_bar["value"] = 0
 
         # Update throughput
         runtime = datetime.now() - self._stats["start_time"]
@@ -156,7 +152,7 @@ class StatisticsPanel(ttk.LabelFrame):
             "total_circles": 0,
             "ok_count": 0,
             "ng_count": 0,
-            "start_time": datetime.now()
+            "start_time": datetime.now(),
         }
         self._update_display()
         logger.info("Statistics reset")
@@ -169,5 +165,5 @@ class StatisticsPanel(ttk.LabelFrame):
         return {
             **self._stats,
             "runtime_seconds": runtime.total_seconds(),
-            "ok_rate": (self._stats["ok_count"] / total * 100) if total > 0 else 0.0
+            "ok_rate": (self._stats["ok_count"] / total * 100) if total > 0 else 0.0,
         }

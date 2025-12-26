@@ -1,4 +1,5 @@
 """Calibration Dialog - UI for camera calibration"""
+
 import tkinter as tk
 from tkinter import ttk, messagebox
 from typing import Optional, Callable
@@ -20,7 +21,7 @@ class CalibrationDialog(tk.Toplevel):
         parent,
         calibration_service: CalibrationService,
         get_frame_callback: Callable[[], Optional[np.ndarray]],
-        on_calibration_complete: Optional[Callable[[CalibrationData], None]] = None
+        on_calibration_complete: Optional[Callable[[CalibrationData], None]] = None,
     ):
         super().__init__(parent)
 
@@ -74,11 +75,7 @@ class CalibrationDialog(tk.Toplevel):
         self.ref_px_entry = ttk.Entry(entry_frame, textvariable=self.ref_px_var, width=10)
         self.ref_px_entry.pack(side=tk.LEFT, padx=5)
 
-        self.manual_btn = ttk.Button(
-            manual_frame,
-            text="Calibrate (Manual)",
-            command=self._on_manual_calibrate
-        )
+        self.manual_btn = ttk.Button(manual_frame, text="Calibrate (Manual)", command=self._on_manual_calibrate)
         self.manual_btn.pack(anchor=tk.W, pady=5)
 
         ttk.Separator(method_frame, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=10)
@@ -100,18 +97,11 @@ class CalibrationDialog(tk.Toplevel):
         btn_frame = ttk.Frame(auto_frame)
         btn_frame.pack(fill=tk.X, pady=5)
 
-        self.capture_btn = ttk.Button(
-            btn_frame,
-            text="Capture Frame",
-            command=self._on_capture_frame
-        )
+        self.capture_btn = ttk.Button(btn_frame, text="Capture Frame", command=self._on_capture_frame)
         self.capture_btn.pack(side=tk.LEFT, padx=(0, 5))
 
         self.auto_btn = ttk.Button(
-            btn_frame,
-            text="Detect & Calibrate",
-            command=self._on_auto_calibrate,
-            state=tk.DISABLED
+            btn_frame, text="Detect & Calibrate", command=self._on_auto_calibrate, state=tk.DISABLED
         )
         self.auto_btn.pack(side=tk.LEFT)
 
@@ -122,18 +112,10 @@ class CalibrationDialog(tk.Toplevel):
         btn_bottom = ttk.Frame(main_frame)
         btn_bottom.pack(fill=tk.X, pady=(15, 0))
 
-        self.reset_btn = ttk.Button(
-            btn_bottom,
-            text="Reset to Default",
-            command=self._on_reset
-        )
+        self.reset_btn = ttk.Button(btn_bottom, text="Reset to Default", command=self._on_reset)
         self.reset_btn.pack(side=tk.LEFT)
 
-        self.close_btn = ttk.Button(
-            btn_bottom,
-            text="Close",
-            command=self.destroy
-        )
+        self.close_btn = ttk.Button(btn_bottom, text="Close", command=self.destroy)
         self.close_btn.pack(side=tk.RIGHT)
 
     def _update_info(self) -> None:
@@ -169,10 +151,7 @@ class CalibrationDialog(tk.Toplevel):
             calibration = self._calibration_service.calibrate(ref_mm, ref_px)
             self._update_info()
 
-            messagebox.showinfo(
-                "Success",
-                f"Calibration complete!\nPixel to mm: {calibration.pixel_to_mm:.6f}"
-            )
+            messagebox.showinfo("Success", f"Calibration complete!\nPixel to mm: {calibration.pixel_to_mm:.6f}")
 
             if self._on_complete:
                 self._on_complete(calibration)
@@ -207,25 +186,19 @@ class CalibrationDialog(tk.Toplevel):
                 messagebox.showerror("Error", "Known diameter must be positive")
                 return
 
-            calibration = self._calibration_service.calibrate_from_circle(
-                self._current_frame,
-                known_mm
-            )
+            calibration = self._calibration_service.calibrate_from_circle(self._current_frame, known_mm)
 
             if calibration is None:
                 messagebox.showwarning(
                     "Warning",
                     "Could not detect a circle in the captured frame.\n"
-                    "Please ensure a circular reference object is clearly visible."
+                    "Please ensure a circular reference object is clearly visible.",
                 )
                 return
 
             self._update_info()
 
-            messagebox.showinfo(
-                "Success",
-                f"Auto-calibration complete!\nPixel to mm: {calibration.pixel_to_mm:.6f}"
-            )
+            messagebox.showinfo("Success", f"Auto-calibration complete!\nPixel to mm: {calibration.pixel_to_mm:.6f}")
 
             if self._on_complete:
                 self._on_complete(calibration)

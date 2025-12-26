@@ -1,4 +1,5 @@
 """Tests for CircleDetector service"""
+
 import pytest
 import numpy as np
 import cv2
@@ -50,11 +51,7 @@ class TestCircleDetector:
 
     def test_update_config(self, detector):
         """TC-DET-006: Update detection config"""
-        new_config = DetectionConfig(
-            min_diameter_mm=5.0,
-            max_diameter_mm=15.0,
-            min_circularity=0.9
-        )
+        new_config = DetectionConfig(min_diameter_mm=5.0, max_diameter_mm=15.0, min_circularity=0.9)
         detector.update_config(new_config)
         assert detector.config.min_diameter_mm == 5.0
         assert detector.config.max_diameter_mm == 15.0
@@ -84,11 +81,7 @@ class TestCircleDetector:
 
     def test_tolerance_check_method(self):
         """TC-DET-010: Tolerance check using ToleranceConfig"""
-        tolerance = ToleranceConfig(
-            enabled=True,
-            nominal_mm=10.0,
-            tolerance_mm=0.5
-        )
+        tolerance = ToleranceConfig(enabled=True, nominal_mm=10.0, tolerance_mm=0.5)
         # Test OK case
         assert tolerance.check(10.0) == MeasureStatus.OK
         assert tolerance.check(10.4) == MeasureStatus.OK

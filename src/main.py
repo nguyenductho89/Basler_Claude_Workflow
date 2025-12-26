@@ -14,6 +14,7 @@ Features:
 - PLC/IO integration
 - NG image saving
 """
+
 import sys
 import os
 import logging
@@ -34,6 +35,7 @@ def show_error_dialog(title: str, message: str) -> None:
     """Show error dialog to user"""
     try:
         import tkinter as tk
+
         root = tk.Tk()
         root.withdraw()
         messagebox.showerror(title, message)
@@ -49,6 +51,7 @@ def check_dependencies() -> bool:
     # Check OpenCV
     try:
         import cv2
+
         logger.info(f"OpenCV version: {cv2.__version__}")
     except ImportError:
         missing.append("opencv-python")
@@ -56,6 +59,7 @@ def check_dependencies() -> bool:
     # Check numpy
     try:
         import numpy as np
+
         logger.info(f"NumPy version: {np.__version__}")
     except ImportError:
         missing.append("numpy")
@@ -64,6 +68,7 @@ def check_dependencies() -> bool:
     try:
         from PIL import Image
         import PIL
+
         logger.info(f"Pillow version: {PIL.__version__}")
     except ImportError:
         missing.append("Pillow")
@@ -71,6 +76,7 @@ def check_dependencies() -> bool:
     # Check pypylon (optional - camera won't work without it)
     try:
         from pypylon import pylon
+
         logger.info("pypylon available - camera support enabled")
     except ImportError:
         logger.warning("pypylon not available - camera simulation mode only")

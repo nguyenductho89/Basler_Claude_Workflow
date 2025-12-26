@@ -1,4 +1,5 @@
 """Thread Manager - Multi-threaded camera and processing management"""
+
 import logging
 import threading
 from queue import Queue, Empty, Full
@@ -20,6 +21,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ProcessResult:
     """Result from processing thread"""
+
     frame: np.ndarray
     display_frame: np.ndarray
     circles: list
@@ -30,12 +32,7 @@ class ProcessResult:
 class ThreadManager:
     """Manages camera and processing threads"""
 
-    def __init__(
-        self,
-        camera: BaslerGigECamera,
-        detector: CircleDetector,
-        visualizer: CircleVisualizer
-    ):
+    def __init__(self, camera: BaslerGigECamera, detector: CircleDetector, visualizer: CircleVisualizer):
         self._camera = camera
         self._detector = detector
         self._visualizer = visualizer
@@ -91,19 +88,11 @@ class ThreadManager:
         self._clear_queues()
 
         # Start camera thread
-        self._camera_thread = threading.Thread(
-            target=self._camera_loop,
-            daemon=True,
-            name="CameraThread"
-        )
+        self._camera_thread = threading.Thread(target=self._camera_loop, daemon=True, name="CameraThread")
         self._camera_thread.start()
 
         # Start processing thread
-        self._processing_thread = threading.Thread(
-            target=self._processing_loop,
-            daemon=True,
-            name="ProcessingThread"
-        )
+        self._processing_thread = threading.Thread(target=self._processing_loop, daemon=True, name="ProcessingThread")
         self._processing_thread.start()
 
         logger.info("Worker threads started")
@@ -205,11 +194,7 @@ class ThreadManager:
                     circles, binary = self._detector.detect(frame)
 
                     # Draw visualization
-                    display_frame = self._visualizer.draw(
-                        frame,
-                        circles,
-                        self._tolerance_config
-                    )
+                    display_frame = self._visualizer.draw(frame, circles, self._tolerance_config)
                 else:
                     circles = []
                     display_frame = frame.copy()
@@ -223,7 +208,7 @@ class ThreadManager:
                     display_frame=display_frame,
                     circles=circles,
                     timestamp=start_time,
-                    processing_time_ms=processing_time
+                    processing_time_ms=processing_time,
                 )
 
                 # Put result in queue

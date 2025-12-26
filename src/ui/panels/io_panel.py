@@ -1,4 +1,5 @@
 """IO Panel - PLC/IO status display and control"""
+
 import tkinter as tk
 from tkinter import ttk
 from typing import Optional, Callable
@@ -26,11 +27,7 @@ class IOIndicator(tk.Canvas):
         self.delete("all")
         color = self._on_color if self._state else self._off_color
         padding = 2
-        self.create_oval(
-            padding, padding,
-            self._size - padding, self._size - padding,
-            fill=color, outline="#808080"
-        )
+        self.create_oval(padding, padding, self._size - padding, self._size - padding, fill=color, outline="#808080")
 
     def set_state(self, state: bool) -> None:
         """Set indicator state"""
@@ -48,12 +45,7 @@ class IOIndicator(tk.Canvas):
 class IOPanel(ttk.LabelFrame):
     """Panel for IO status display and simulation control"""
 
-    def __init__(
-        self,
-        parent,
-        io_service: IOService,
-        on_trigger: Optional[Callable[[], None]] = None
-    ):
+    def __init__(self, parent, io_service: IOService, on_trigger: Optional[Callable[[], None]] = None):
         super().__init__(parent, text="PLC/IO Interface", padding=10)
 
         self._io_service = io_service
@@ -73,9 +65,7 @@ class IOPanel(ttk.LabelFrame):
 
         ttk.Label(mode_frame, text="Mode:").pack(side=tk.LEFT)
         self.mode_label = ttk.Label(
-            mode_frame,
-            text=self._io_service.config.mode.value.upper(),
-            font=("Arial", 10, "bold")
+            mode_frame, text=self._io_service.config.mode.value.upper(), font=("Arial", 10, "bold")
         )
         self.mode_label.pack(side=tk.LEFT, padx=5)
 
@@ -111,20 +101,13 @@ class IOPanel(ttk.LabelFrame):
             sim_frame.pack(fill=tk.X)
 
             # Trigger button
-            self.trigger_btn = ttk.Button(
-                sim_frame,
-                text="Simulate Trigger",
-                command=self._on_sim_trigger
-            )
+            self.trigger_btn = ttk.Button(sim_frame, text="Simulate Trigger", command=self._on_sim_trigger)
             self.trigger_btn.pack(fill=tk.X, pady=2)
 
             # Enable toggle
             self.enable_var = tk.BooleanVar(value=True)
             ttk.Checkbutton(
-                sim_frame,
-                text="System Enable",
-                variable=self.enable_var,
-                command=self._on_sim_enable
+                sim_frame, text="System Enable", variable=self.enable_var, command=self._on_sim_enable
             ).pack(anchor=tk.W, pady=2)
 
             # Recipe selector
@@ -133,11 +116,7 @@ class IOPanel(ttk.LabelFrame):
             ttk.Label(recipe_frame, text="Recipe:").pack(side=tk.LEFT)
             self.recipe_var = tk.IntVar(value=0)
             recipe_spin = ttk.Spinbox(
-                recipe_frame,
-                from_=0, to=3,
-                width=5,
-                textvariable=self.recipe_var,
-                command=self._on_sim_recipe
+                recipe_frame, from_=0, to=3, width=5, textvariable=self.recipe_var, command=self._on_sim_recipe
             )
             recipe_spin.pack(side=tk.LEFT, padx=5)
 
@@ -145,21 +124,11 @@ class IOPanel(ttk.LabelFrame):
         control_frame = ttk.Frame(self)
         control_frame.pack(fill=tk.X, pady=(10, 0))
 
-        self.start_btn = ttk.Button(
-            control_frame,
-            text="Start IO",
-            command=self._toggle_io
-        )
+        self.start_btn = ttk.Button(control_frame, text="Start IO", command=self._toggle_io)
         self.start_btn.pack(fill=tk.X)
 
     def _create_io_row(
-        self,
-        parent,
-        channel: str,
-        name: str,
-        key: str,
-        is_input: bool = False,
-        color: str = "#00ff00"
+        self, parent, channel: str, name: str, key: str, is_input: bool = False, color: str = "#00ff00"
     ) -> None:
         """Create an IO status row"""
         frame = ttk.Frame(parent)

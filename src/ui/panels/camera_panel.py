@@ -1,4 +1,5 @@
 """Camera Panel - Camera connection controls"""
+
 import tkinter as tk
 from tkinter import ttk, messagebox
 from typing import Callable, Optional, List, Dict
@@ -15,7 +16,7 @@ class CameraPanel(ttk.LabelFrame):
         parent,
         on_connect: Optional[Callable[[int], None]] = None,
         on_disconnect: Optional[Callable[[], None]] = None,
-        on_refresh: Optional[Callable[[], List[Dict]]] = None
+        on_refresh: Optional[Callable[[], List[Dict]]] = None,
     ):
         super().__init__(parent, text="Camera Connection", padding=10)
 
@@ -35,37 +36,21 @@ class CameraPanel(ttk.LabelFrame):
 
         ttk.Label(device_frame, text="Device:").pack(side=tk.LEFT)
 
-        self.device_combo = ttk.Combobox(
-            device_frame,
-            state="readonly",
-            width=35
-        )
+        self.device_combo = ttk.Combobox(device_frame, state="readonly", width=35)
         self.device_combo.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
 
-        self.refresh_btn = ttk.Button(
-            device_frame,
-            text="Refresh",
-            width=8,
-            command=self._on_refresh_click
-        )
+        self.refresh_btn = ttk.Button(device_frame, text="Refresh", width=8, command=self._on_refresh_click)
         self.refresh_btn.pack(side=tk.LEFT)
 
         # Connection buttons row
         btn_frame = ttk.Frame(self)
         btn_frame.pack(fill=tk.X, pady=5)
 
-        self.connect_btn = ttk.Button(
-            btn_frame,
-            text="Connect",
-            command=self._on_connect_click
-        )
+        self.connect_btn = ttk.Button(btn_frame, text="Connect", command=self._on_connect_click)
         self.connect_btn.pack(side=tk.LEFT, padx=(0, 5))
 
         self.disconnect_btn = ttk.Button(
-            btn_frame,
-            text="Disconnect",
-            command=self._on_disconnect_click,
-            state=tk.DISABLED
+            btn_frame, text="Disconnect", command=self._on_disconnect_click, state=tk.DISABLED
         )
         self.disconnect_btn.pack(side=tk.LEFT)
 
@@ -75,11 +60,7 @@ class CameraPanel(ttk.LabelFrame):
 
         ttk.Label(status_frame, text="Status:").pack(side=tk.LEFT)
 
-        self.status_label = ttk.Label(
-            status_frame,
-            text="Disconnected",
-            foreground="red"
-        )
+        self.status_label = ttk.Label(status_frame, text="Disconnected", foreground="red")
         self.status_label.pack(side=tk.LEFT, padx=5)
 
     def _on_refresh_click(self) -> None:
@@ -124,11 +105,11 @@ class CameraPanel(ttk.LabelFrame):
         device_names = []
         for dev in self._devices:
             name = f"{dev['model']} ({dev['serial']})"
-            if dev.get('ip') and dev['ip'] != 'N/A':
+            if dev.get("ip") and dev["ip"] != "N/A":
                 name += f" - {dev['ip']}"
             device_names.append(name)
 
-        self.device_combo['values'] = device_names
+        self.device_combo["values"] = device_names
 
         if device_names:
             self.device_combo.current(0)
@@ -153,7 +134,7 @@ class CameraPanel(ttk.LabelFrame):
             self.device_combo.config(state=tk.DISABLED)
             self.refresh_btn.config(state=tk.DISABLED)
 
-            device_name = device_info.get('name', 'Unknown') if device_info else 'Unknown'
+            device_name = device_info.get("name", "Unknown") if device_info else "Unknown"
             self.status_label.config(text=f"Connected: {device_name}", foreground="green")
         else:
             self.connect_btn.config(state=tk.NORMAL)

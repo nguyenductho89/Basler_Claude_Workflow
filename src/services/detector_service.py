@@ -1,4 +1,5 @@
 """Circle Detector Service - Automatic circle detection and measurement"""
+
 import logging
 import math
 from typing import List, Tuple, Optional
@@ -40,8 +41,8 @@ class CircleDetector:
         min_radius_px = (self._config.min_diameter_mm / 2) * px_per_mm
         max_radius_px = (self._config.max_diameter_mm / 2) * px_per_mm
 
-        self._min_area_px = math.pi * (min_radius_px ** 2)
-        self._max_area_px = math.pi * (max_radius_px ** 2)
+        self._min_area_px = math.pi * (min_radius_px**2)
+        self._max_area_px = math.pi * (max_radius_px**2)
 
         logger.debug(f"Pixel limits: area {self._min_area_px:.0f} - {self._max_area_px:.0f} px²")
 
@@ -93,11 +94,7 @@ class CircleDetector:
 
         return binary
 
-    def _find_circles(
-        self,
-        binary: np.ndarray,
-        image_shape: Tuple[int, int]
-    ) -> List[CircleResult]:
+    def _find_circles(self, binary: np.ndarray, image_shape: Tuple[int, int]) -> List[CircleResult]:
         """
         Find circles in binary image
 
@@ -129,7 +126,7 @@ class CircleDetector:
                 continue
 
             # Calculate circularity
-            circularity = 4 * math.pi * area / (perimeter ** 2)
+            circularity = 4 * math.pi * area / (perimeter**2)
 
             # Skip if not circular enough
             if circularity < self._config.min_circularity:
@@ -140,15 +137,19 @@ class CircleDetector:
 
             # Check edge margin
             margin = self._config.edge_margin
-            if (cx - radius < margin or cx + radius > width - margin or
-                cy - radius < margin or cy + radius > height - margin):
+            if (
+                cx - radius < margin
+                or cx + radius > width - margin
+                or cy - radius < margin
+                or cy + radius > height - margin
+            ):
                 continue
 
             # Calculate measurements
             hole_id += 1
             diameter_px = 2 * radius
             diameter_mm = diameter_px * self._config.pixel_to_mm
-            area_mm2 = area * (self._config.pixel_to_mm ** 2)
+            area_mm2 = area * (self._config.pixel_to_mm**2)
 
             circle = CircleResult(
                 hole_id=hole_id,
@@ -158,7 +159,7 @@ class CircleDetector:
                 diameter_mm=diameter_mm,
                 circularity=circularity,
                 area_mm2=area_mm2,
-                status=MeasureStatus.OK
+                status=MeasureStatus.OK,
             )
             circles.append(circle)
 
@@ -193,14 +194,14 @@ class CircleDetector:
             param1=50,
             param2=30,
             minRadius=min_radius,
-            maxRadius=max_radius
+            maxRadius=max_radius,
         )
 
         circles: List[CircleResult] = []
         if hough_circles is not None:
             for i, (x, y, r) in enumerate(hough_circles[0]):
                 diameter_mm = 2 * r * self._config.pixel_to_mm
-                area_mm2 = math.pi * (r ** 2) * (self._config.pixel_to_mm ** 2)
+                area_mm2 = math.pi * (r**2) * (self._config.pixel_to_mm**2)
 
                 circle = CircleResult(
                     hole_id=i + 1,
@@ -210,7 +211,7 @@ class CircleDetector:
                     diameter_mm=diameter_mm,
                     circularity=1.0,  # Assumed for Hough
                     area_mm2=area_mm2,
-                    status=MeasureStatus.OK
+                    status=MeasureStatus.OK,
                 )
                 circles.append(circle)
 

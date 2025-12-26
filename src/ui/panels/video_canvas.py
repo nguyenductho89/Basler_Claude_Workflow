@@ -1,4 +1,5 @@
 """Video Canvas - Display live camera feed"""
+
 import tkinter as tk
 from tkinter import ttk
 from typing import Optional
@@ -26,12 +27,7 @@ class VideoCanvas(ttk.Frame):
     def _setup_ui(self) -> None:
         """Setup the UI components"""
         # Main canvas
-        self.canvas = tk.Canvas(
-            self,
-            width=self._display_width,
-            height=self._display_height,
-            bg='black'
-        )
+        self.canvas = tk.Canvas(self, width=self._display_width, height=self._display_height, bg="black")
         self.canvas.pack(fill=tk.BOTH, expand=True)
 
         # Display placeholder text
@@ -45,7 +41,7 @@ class VideoCanvas(ttk.Frame):
             self._display_height // 2,
             text="No Camera Connected",
             fill="gray",
-            font=("Arial", 16)
+            font=("Arial", 16),
         )
 
     def update_frame(self, frame: np.ndarray) -> None:

@@ -1,4 +1,5 @@
 """Tests for CalibrationService - UC-04: Calibration"""
+
 import pytest
 import json
 import numpy as np
@@ -39,10 +40,7 @@ class TestCalibrationService:
     def test_calibrate_with_reference(self, calib_service):
         """TC-CAL-003: Calibrate with known reference size"""
         # Reference: 100px = 10mm -> pixel_to_mm = 0.1
-        result = calib_service.calibrate(
-            reference_size_mm=10.0,
-            reference_size_px=100.0
-        )
+        result = calib_service.calibrate(reference_size_mm=10.0, reference_size_px=100.0)
 
         assert result is not None
         assert result.pixel_to_mm == 0.1
@@ -52,10 +50,7 @@ class TestCalibrationService:
     def test_calibrate_precision(self, calib_service):
         """TC-CAL-004: Calibration precision calculation"""
         # Reference: 1550px = 10mm -> pixel_to_mm = 0.00645161...
-        result = calib_service.calibrate(
-            reference_size_mm=10.0,
-            reference_size_px=1550.0
-        )
+        result = calib_service.calibrate(reference_size_mm=10.0, reference_size_px=1550.0)
 
         expected = 10.0 / 1550.0
         assert abs(result.pixel_to_mm - expected) < 1e-10
@@ -86,10 +81,7 @@ class TestCalibrationService:
         """TC-CAL-009: Auto-calibrate from detected circle"""
         # Circle in image has diameter 200px
         # If we say it's 20mm, then pixel_to_mm = 0.1
-        result = calib_service.calibrate_from_circle(
-            frame=calibration_image,
-            known_diameter_mm=20.0
-        )
+        result = calib_service.calibrate_from_circle(frame=calibration_image, known_diameter_mm=20.0)
 
         assert result is not None
         # Diameter is ~200px, so pixel_to_mm should be ~0.1
@@ -97,10 +89,7 @@ class TestCalibrationService:
 
     def test_calibrate_from_circle_no_circle(self, calib_service, test_image_no_circles):
         """TC-CAL-010: Auto-calibrate fails when no circle detected"""
-        result = calib_service.calibrate_from_circle(
-            frame=test_image_no_circles,
-            known_diameter_mm=10.0
-        )
+        result = calib_service.calibrate_from_circle(frame=test_image_no_circles, known_diameter_mm=10.0)
 
         assert result is None
 

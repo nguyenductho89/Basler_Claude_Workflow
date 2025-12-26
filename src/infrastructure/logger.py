@@ -1,4 +1,5 @@
 """Logging configuration"""
+
 import logging
 from datetime import datetime
 from pathlib import Path
@@ -26,21 +27,13 @@ def setup_logging(log_dir: str = "logs", level: int = logging.INFO) -> None:
     date_format = "%Y-%m-%d %H:%M:%S"
 
     # Setup handlers
-    handlers: List[logging.Handler] = [
-        logging.FileHandler(log_file, encoding='utf-8'),
-        logging.StreamHandler()
-    ]
+    handlers: List[logging.Handler] = [logging.FileHandler(log_file, encoding="utf-8"), logging.StreamHandler()]
 
     # Configure root logger
-    logging.basicConfig(
-        level=level,
-        format=log_format,
-        datefmt=date_format,
-        handlers=handlers
-    )
+    logging.basicConfig(level=level, format=log_format, datefmt=date_format, handlers=handlers)
 
     # Set third-party loggers to WARNING
-    logging.getLogger('PIL').setLevel(logging.WARNING)
+    logging.getLogger("PIL").setLevel(logging.WARNING)
 
     logger = logging.getLogger(__name__)
     logger.info(f"Logging initialized. Log file: {log_file}")

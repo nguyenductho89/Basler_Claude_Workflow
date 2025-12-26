@@ -1,4 +1,5 @@
 """Configuration data classes"""
+
 from dataclasses import dataclass, field
 from .enums import MeasureStatus
 
@@ -6,6 +7,7 @@ from .enums import MeasureStatus
 @dataclass
 class DetectionConfig:
     """Configuration for circle detection"""
+
     pixel_to_mm: float = 0.00644  # mm per pixel (based on FOV calculation)
     min_diameter_mm: float = 1.0
     max_diameter_mm: float = 20.0
@@ -20,6 +22,7 @@ class DetectionConfig:
 @dataclass
 class ToleranceConfig:
     """Configuration for tolerance checking"""
+
     enabled: bool = False
     nominal_mm: float = 10.0
     tolerance_mm: float = 0.05
@@ -57,6 +60,7 @@ class ToleranceConfig:
 @dataclass
 class CameraConfig:
     """Configuration for camera settings"""
+
     default_exposure_us: float = 50.0
     trigger_mode: str = "software"
     pixel_format: str = "BGR8"

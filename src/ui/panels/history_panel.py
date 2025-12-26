@@ -1,4 +1,5 @@
 """History Panel - Measurement history display"""
+
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from typing import List
@@ -16,6 +17,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class HistoryEntry:
     """Single history entry"""
+
     timestamp: datetime
     circles: List[CircleResult]
     total_count: int
@@ -80,18 +82,10 @@ class HistoryPanel(ttk.LabelFrame):
         btn_frame = ttk.Frame(self)
         btn_frame.pack(fill=tk.X, pady=(10, 0))
 
-        self.export_btn = ttk.Button(
-            btn_frame,
-            text="Export CSV",
-            command=self._export_csv
-        )
+        self.export_btn = ttk.Button(btn_frame, text="Export CSV", command=self._export_csv)
         self.export_btn.pack(side=tk.LEFT, padx=(0, 5))
 
-        self.clear_btn = ttk.Button(
-            btn_frame,
-            text="Clear",
-            command=self.clear
-        )
+        self.clear_btn = ttk.Button(btn_frame, text="Clear", command=self.clear)
         self.clear_btn.pack(side=tk.LEFT)
 
     def add_measurement(self, circles: List[CircleResult]) -> None:
@@ -113,7 +107,7 @@ class HistoryPanel(ttk.LabelFrame):
             circles=circles.copy(),
             total_count=len(circles),
             ok_count=ok_count,
-            ng_count=ng_count
+            ng_count=ng_count,
         )
 
         # Add to history (limit size)
@@ -161,10 +155,7 @@ class HistoryPanel(ttk.LabelFrame):
                 tag = "mixed"
 
             self.tree.insert(
-                "",
-                tk.END,
-                values=(time_str, entry.total_count, entry.ok_count, entry.ng_count),
-                tags=(tag,)
+                "", tk.END, values=(time_str, entry.total_count, entry.ok_count, entry.ng_count), tags=(tag,)
             )
 
     def _export_csv(self) -> None:
@@ -176,34 +167,35 @@ class HistoryPanel(ttk.LabelFrame):
         filename = filedialog.asksaveasfilename(
             defaultextension=".csv",
             filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
-            initialfile=f"measurements_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+            initialfile=f"measurements_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
         )
 
         if not filename:
             return
 
         try:
-            with open(filename, 'w', newline='', encoding='utf-8') as f:
+            with open(filename, "w", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f)
 
                 # Write header
-                writer.writerow([
-                    "Timestamp", "Hole_ID", "Diameter_mm", "Circularity",
-                    "Center_X", "Center_Y", "Status"
-                ])
+                writer.writerow(
+                    ["Timestamp", "Hole_ID", "Diameter_mm", "Circularity", "Center_X", "Center_Y", "Status"]
+                )
 
                 # Write data
                 for entry in self._history:
                     for circle in entry.circles:
-                        writer.writerow([
-                            entry.timestamp.strftime("%Y-%m-%d %H:%M:%S.%f"),
-                            circle.hole_id,
-                            f"{circle.diameter_mm:.4f}",
-                            f"{circle.circularity:.4f}",
-                            f"{circle.center_x:.2f}",
-                            f"{circle.center_y:.2f}",
-                            circle.status.name
-                        ])
+                        writer.writerow(
+                            [
+                                entry.timestamp.strftime("%Y-%m-%d %H:%M:%S.%f"),
+                                circle.hole_id,
+                                f"{circle.diameter_mm:.4f}",
+                                f"{circle.circularity:.4f}",
+                                f"{circle.center_x:.2f}",
+                                f"{circle.center_y:.2f}",
+                                circle.status.name,
+                            ]
+                        )
 
             messagebox.showinfo("Success", f"History exported to:\n{filename}")
             logger.info(f"History exported to {filename}")
@@ -235,5 +227,5 @@ class HistoryPanel(ttk.LabelFrame):
             "total_circles": total_all,
             "ok_count": total_ok,
             "ng_count": total_ng,
-            "ok_rate": (total_ok / total_all * 100) if total_all > 0 else 0.0
+            "ok_rate": (total_ok / total_all * 100) if total_all > 0 else 0.0,
         }

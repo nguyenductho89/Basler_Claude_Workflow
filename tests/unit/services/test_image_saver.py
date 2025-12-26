@@ -1,4 +1,5 @@
 """Tests for ImageSaver - Save NG images for quality tracking"""
+
 import pytest
 import json
 import numpy as np
@@ -36,7 +37,7 @@ class TestImageSaver:
             diameter_mm=12.0,  # Outside tolerance
             circularity=0.95,
             area_mm2=78.54,
-            status=MeasureStatus.NG
+            status=MeasureStatus.NG,
         )
 
     @pytest.fixture
@@ -50,7 +51,7 @@ class TestImageSaver:
             diameter_mm=10.0,
             circularity=0.95,
             area_mm2=78.54,
-            status=MeasureStatus.OK
+            status=MeasureStatus.OK,
         )
 
     # ========== Directory setup ==========
@@ -215,14 +216,24 @@ class TestImageSaver:
     def test_save_multiple_ng_circles(self, image_saver, test_frame):
         """TC-IMG-017: Save image with multiple NG circles"""
         ng1 = CircleResult(
-            hole_id=1, center_x=160, center_y=240,
-            radius=40, diameter_mm=8.0,
-            circularity=0.9, area_mm2=50.27, status=MeasureStatus.NG
+            hole_id=1,
+            center_x=160,
+            center_y=240,
+            radius=40,
+            diameter_mm=8.0,
+            circularity=0.9,
+            area_mm2=50.27,
+            status=MeasureStatus.NG,
         )
         ng2 = CircleResult(
-            hole_id=2, center_x=480, center_y=240,
-            radius=60, diameter_mm=12.0,
-            circularity=0.92, area_mm2=113.1, status=MeasureStatus.NG
+            hole_id=2,
+            center_x=480,
+            center_y=240,
+            radius=60,
+            diameter_mm=12.0,
+            circularity=0.92,
+            area_mm2=113.1,
+            status=MeasureStatus.NG,
         )
 
         path = image_saver.save_ng_image(test_frame, [ng1, ng2])

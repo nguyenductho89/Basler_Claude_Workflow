@@ -1,4 +1,5 @@
 """Recipe Dialog - Save/Load/Manage recipes"""
+
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from typing import Optional, Callable
@@ -19,7 +20,7 @@ class RecipeDialog(tk.Toplevel):
         parent,
         recipe_service: RecipeService,
         get_current_config: Callable[[], tuple],
-        on_recipe_load: Optional[Callable[[Recipe], None]] = None
+        on_recipe_load: Optional[Callable[[Recipe], None]] = None,
     ):
         super().__init__(parent)
 
@@ -56,8 +57,8 @@ class RecipeDialog(tk.Toplevel):
         self.recipe_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
-        self.recipe_listbox.bind('<<ListboxSelect>>', self._on_select)
-        self.recipe_listbox.bind('<Double-1>', lambda e: self._on_load())
+        self.recipe_listbox.bind("<<ListboxSelect>>", self._on_select)
+        self.recipe_listbox.bind("<Double-1>", lambda e: self._on_load())
 
         # Recipe info
         info_frame = ttk.LabelFrame(main_frame, text="Recipe Details", padding=10)
@@ -181,7 +182,7 @@ class RecipeDialog(tk.Toplevel):
                 description=description,
                 detection_config=detection_config,
                 tolerance_config=tolerance_config,
-                pixel_to_mm=pixel_to_mm
+                pixel_to_mm=pixel_to_mm,
             )
 
             if self._recipe_service.save_recipe(recipe):
@@ -206,9 +207,7 @@ class RecipeDialog(tk.Toplevel):
 
     def _on_import(self) -> None:
         """Import recipe from file"""
-        filename = filedialog.askopenfilename(
-            filetypes=[("JSON files", "*.json"), ("All files", "*.*")]
-        )
+        filename = filedialog.askopenfilename(filetypes=[("JSON files", "*.json"), ("All files", "*.*")])
 
         if filename:
             recipe = self._recipe_service.import_recipe(filename)
@@ -227,9 +226,7 @@ class RecipeDialog(tk.Toplevel):
         name = self.recipe_listbox.get(selection[0])
 
         filename = filedialog.asksaveasfilename(
-            defaultextension=".json",
-            filetypes=[("JSON files", "*.json")],
-            initialfile=f"{name}.json"
+            defaultextension=".json", filetypes=[("JSON files", "*.json")], initialfile=f"{name}.json"
         )
 
         if filename:
@@ -281,7 +278,7 @@ class SaveRecipeDialog(tk.Toplevel):
         ttk.Button(btn_frame, text="Cancel", command=self.destroy).pack(side=tk.LEFT)
 
         self.name_entry.focus_set()
-        self.bind('<Return>', lambda e: self._on_save())
+        self.bind("<Return>", lambda e: self._on_save())
 
     def _on_save(self) -> None:
         """Handle save button"""

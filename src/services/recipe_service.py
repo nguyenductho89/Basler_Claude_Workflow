@@ -1,4 +1,5 @@
 """Recipe Service - Save/Load recipe configurations"""
+
 import json
 import logging
 from pathlib import Path
@@ -51,7 +52,7 @@ class RecipeService:
     def _load_recipe_file(self, file_path: Path) -> Optional[Recipe]:
         """Load a single recipe file"""
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
             return Recipe.from_dict(data)
         except Exception as e:
@@ -68,7 +69,7 @@ class RecipeService:
             recipe.updated_at = datetime.now()
             file_path = self._recipe_dir / f"{self._sanitize_filename(recipe.name)}.json"
 
-            with open(file_path, 'w', encoding='utf-8') as f:
+            with open(file_path, "w", encoding="utf-8") as f:
                 json.dump(recipe.to_dict(), f, indent=2)
 
             self._recipes[recipe.name] = recipe
@@ -116,7 +117,7 @@ class RecipeService:
         detection_config: DetectionConfig,
         tolerance_config: ToleranceConfig,
         pixel_to_mm: float,
-        description: str = ""
+        description: str = "",
     ) -> Recipe:
         """Create a new recipe from current settings"""
         recipe = Recipe(
@@ -124,16 +125,13 @@ class RecipeService:
             description=description,
             detection_config=detection_config,
             tolerance_config=tolerance_config,
-            pixel_to_mm=pixel_to_mm
+            pixel_to_mm=pixel_to_mm,
         )
         return recipe
 
     def create_default_recipe(self) -> Recipe:
         """Create a default recipe"""
-        return Recipe(
-            name="Default",
-            description="Default recipe with standard settings"
-        )
+        return Recipe(name="Default", description="Default recipe with standard settings")
 
     def _sanitize_filename(self, name: str) -> str:
         """Sanitize recipe name for use as filename"""
@@ -141,7 +139,7 @@ class RecipeService:
         invalid_chars = '<>:"/\\|?*'
         result = name
         for char in invalid_chars:
-            result = result.replace(char, '_')
+            result = result.replace(char, "_")
         return result
 
     def refresh(self) -> None:
@@ -155,7 +153,7 @@ class RecipeService:
             return False
 
         try:
-            with open(file_path, 'w', encoding='utf-8') as f:
+            with open(file_path, "w", encoding="utf-8") as f:
                 json.dump(recipe.to_dict(), f, indent=2)
             logger.info(f"Exported recipe to {file_path}")
             return True
@@ -166,7 +164,7 @@ class RecipeService:
     def import_recipe(self, file_path: str) -> Optional[Recipe]:
         """Import recipe from external file"""
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
             recipe = Recipe.from_dict(data)

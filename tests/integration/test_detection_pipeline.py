@@ -1,4 +1,5 @@
 """Integration tests for detection pipeline"""
+
 import pytest
 import numpy as np
 import cv2
@@ -98,17 +99,9 @@ class TestRecipeIntegration:
         # Create recipe with custom config
         recipe = recipe_service.create_recipe(
             name="CustomConfig",
-            detection_config=DetectionConfig(
-                min_diameter_mm=5.0,
-                max_diameter_mm=15.0,
-                min_circularity=0.9
-            ),
-            tolerance_config=ToleranceConfig(
-                enabled=True,
-                nominal_mm=10.0,
-                tolerance_mm=0.5
-            ),
-            pixel_to_mm=0.01
+            detection_config=DetectionConfig(min_diameter_mm=5.0, max_diameter_mm=15.0, min_circularity=0.9),
+            tolerance_config=ToleranceConfig(enabled=True, nominal_mm=10.0, tolerance_mm=0.5),
+            pixel_to_mm=0.01,
         )
 
         # Apply to detector
@@ -129,14 +122,10 @@ class TestRecipeIntegration:
             detection_config=DetectionConfig(
                 pixel_to_mm=0.1,  # 100px = 10mm
                 min_diameter_mm=5.0,
-                max_diameter_mm=15.0
+                max_diameter_mm=15.0,
             ),
-            tolerance_config=ToleranceConfig(
-                enabled=True,
-                nominal_mm=10.0,
-                tolerance_mm=0.5
-            ),
-            pixel_to_mm=0.1
+            tolerance_config=ToleranceConfig(enabled=True, nominal_mm=10.0, tolerance_mm=0.5),
+            pixel_to_mm=0.1,
         )
         recipe_service.save_recipe(recipe)
 

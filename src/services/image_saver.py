@@ -1,4 +1,5 @@
 """Image Saver Service - Save NG images and measurements"""
+
 import logging
 from pathlib import Path
 from datetime import datetime
@@ -41,10 +42,7 @@ class ImageSaver:
         return self._data_dir
 
     def save_ng_image(
-        self,
-        frame: np.ndarray,
-        circles: List[CircleResult],
-        display_frame: Optional[np.ndarray] = None
+        self, frame: np.ndarray, circles: List[CircleResult], display_frame: Optional[np.ndarray] = None
     ) -> Optional[str]:
         """
         Save NG image with measurement data
@@ -90,12 +88,7 @@ class ImageSaver:
             logger.error(f"Failed to save NG image: {e}")
             return None
 
-    def _save_measurement_data(
-        self,
-        file_path: Path,
-        timestamp: datetime,
-        circles: List[CircleResult]
-    ) -> None:
+    def _save_measurement_data(self, file_path: Path, timestamp: datetime, circles: List[CircleResult]) -> None:
         """Save measurement data to JSON file"""
         data = {
             "timestamp": timestamp.isoformat(),
@@ -110,21 +103,16 @@ class ImageSaver:
                     "diameter_mm": c.diameter_mm,
                     "circularity": c.circularity,
                     "area_mm2": c.area_mm2,
-                    "status": c.status.name
+                    "status": c.status.name,
                 }
                 for c in circles
-            ]
+            ],
         }
 
-        with open(file_path, 'w', encoding='utf-8') as f:
+        with open(file_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
 
-    def save_all_image(
-        self,
-        frame: np.ndarray,
-        circles: List[CircleResult],
-        prefix: str = "IMG"
-    ) -> Optional[str]:
+    def save_all_image(self, frame: np.ndarray, circles: List[CircleResult], prefix: str = "IMG") -> Optional[str]:
         """Save any image (not just NG)"""
         try:
             timestamp = datetime.now()

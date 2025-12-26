@@ -1,4 +1,5 @@
 """Tests for CircleVisualizer - US-03, US-04: Display results and OK/NG colors"""
+
 import pytest
 import numpy as np
 import cv2
@@ -32,7 +33,7 @@ class TestCircleVisualizer:
             diameter_mm=10.0,
             circularity=0.95,
             area_mm2=78.54,
-            status=MeasureStatus.OK
+            status=MeasureStatus.OK,
         )
 
     @pytest.fixture
@@ -46,7 +47,7 @@ class TestCircleVisualizer:
             diameter_mm=8.0,
             circularity=0.92,
             area_mm2=50.27,
-            status=MeasureStatus.NG
+            status=MeasureStatus.NG,
         )
 
     # ========== US-03: Display measurement results ==========
@@ -92,11 +93,7 @@ class TestCircleVisualizer:
         result = visualizer.draw(test_frame, circles)
 
         # Check that green color (0, 255, 0) exists in the result
-        green_pixels = np.where(
-            (result[:, :, 0] == 0) &
-            (result[:, :, 1] == 255) &
-            (result[:, :, 2] == 0)
-        )
+        green_pixels = np.where((result[:, :, 0] == 0) & (result[:, :, 1] == 255) & (result[:, :, 2] == 0))
         assert len(green_pixels[0]) > 0
 
     def test_ng_circle_color(self, visualizer, test_frame, sample_circle_ng):
@@ -105,11 +102,7 @@ class TestCircleVisualizer:
         result = visualizer.draw(test_frame, circles)
 
         # Check that red color (0, 0, 255) exists in the result
-        red_pixels = np.where(
-            (result[:, :, 0] == 0) &
-            (result[:, :, 1] == 0) &
-            (result[:, :, 2] == 255)
-        )
+        red_pixels = np.where((result[:, :, 0] == 0) & (result[:, :, 1] == 0) & (result[:, :, 2] == 255))
         assert len(red_pixels[0]) > 0
 
     def test_tolerance_check_updates_color(self, visualizer, test_frame):
@@ -123,7 +116,7 @@ class TestCircleVisualizer:
             diameter_mm=10.0,
             circularity=0.95,
             area_mm2=78.54,
-            status=MeasureStatus.NONE
+            status=MeasureStatus.NONE,
         )
 
         # Tolerance: nominal=10mm, tolerance=0.5mm -> OK range: 9.5-10.5mm
@@ -132,11 +125,7 @@ class TestCircleVisualizer:
         result = visualizer.draw(test_frame, [circle], tolerance)
 
         # Circle should be marked as OK (green) since 10.0 is within tolerance
-        green_pixels = np.where(
-            (result[:, :, 0] == 0) &
-            (result[:, :, 1] == 255) &
-            (result[:, :, 2] == 0)
-        )
+        green_pixels = np.where((result[:, :, 0] == 0) & (result[:, :, 1] == 255) & (result[:, :, 2] == 0))
         assert len(green_pixels[0]) > 0
 
     def test_tolerance_ng_color(self, visualizer, test_frame):
@@ -150,7 +139,7 @@ class TestCircleVisualizer:
             diameter_mm=12.0,  # Outside tolerance
             circularity=0.95,
             area_mm2=78.54,
-            status=MeasureStatus.NONE
+            status=MeasureStatus.NONE,
         )
 
         # Tolerance: nominal=10mm, tolerance=0.5mm -> OK range: 9.5-10.5mm
@@ -159,11 +148,7 @@ class TestCircleVisualizer:
         result = visualizer.draw(test_frame, [circle], tolerance)
 
         # Circle should be marked as NG (red)
-        red_pixels = np.where(
-            (result[:, :, 0] == 0) &
-            (result[:, :, 1] == 0) &
-            (result[:, :, 2] == 255)
-        )
+        red_pixels = np.where((result[:, :, 0] == 0) & (result[:, :, 1] == 0) & (result[:, :, 2] == 255))
         assert len(red_pixels[0]) > 0
 
     # ========== Display options ==========
@@ -260,7 +245,7 @@ class TestCircleVisualizer:
             diameter_mm=5.0,
             circularity=0.95,
             area_mm2=19.63,
-            status=MeasureStatus.OK
+            status=MeasureStatus.OK,
         )
 
         # Should not raise exception
@@ -269,11 +254,7 @@ class TestCircleVisualizer:
 
     def test_update_config(self, visualizer):
         """TC-VIS-018: Update visualizer config"""
-        new_config = DetectionConfig(
-            show_contours=False,
-            show_diameter_line=False,
-            show_label=True
-        )
+        new_config = DetectionConfig(show_contours=False, show_diameter_line=False, show_label=True)
         visualizer.update_config(new_config)
 
         assert visualizer._config.show_contours == False

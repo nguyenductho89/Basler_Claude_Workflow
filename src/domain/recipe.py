@@ -1,4 +1,5 @@
 """Recipe model for saving/loading configurations"""
+
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from typing import Optional, Dict, Any
@@ -10,6 +11,7 @@ from .config import DetectionConfig, ToleranceConfig
 @dataclass
 class Recipe:
     """Recipe containing all configuration for a product type"""
+
     name: str
     description: str = ""
     detection_config: DetectionConfig = field(default_factory=DetectionConfig)
@@ -36,17 +38,17 @@ class Recipe:
                 "edge_margin": self.detection_config.edge_margin,
                 "show_contours": self.detection_config.show_contours,
                 "show_diameter_line": self.detection_config.show_diameter_line,
-                "show_label": self.detection_config.show_label
+                "show_label": self.detection_config.show_label,
             },
             "tolerance": {
                 "enabled": self.tolerance_config.enabled,
                 "nominal_mm": self.tolerance_config.nominal_mm,
-                "tolerance_mm": self.tolerance_config.tolerance_mm
-            }
+                "tolerance_mm": self.tolerance_config.tolerance_mm,
+            },
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'Recipe':
+    def from_dict(cls, data: Dict[str, Any]) -> "Recipe":
         """Create recipe from dictionary"""
         detection_data = data.get("detection", {})
         tolerance_data = data.get("tolerance", {})
@@ -60,13 +62,13 @@ class Recipe:
             edge_margin=detection_data.get("edge_margin", 10),
             show_contours=detection_data.get("show_contours", True),
             show_diameter_line=detection_data.get("show_diameter_line", True),
-            show_label=detection_data.get("show_label", True)
+            show_label=detection_data.get("show_label", True),
         )
 
         tolerance_config = ToleranceConfig(
             enabled=tolerance_data.get("enabled", False),
             nominal_mm=tolerance_data.get("nominal_mm", 10.0),
-            tolerance_mm=tolerance_data.get("tolerance_mm", 0.05)
+            tolerance_mm=tolerance_data.get("tolerance_mm", 0.05),
         )
 
         created_at = datetime.fromisoformat(data.get("created_at", datetime.now().isoformat()))
@@ -80,7 +82,7 @@ class Recipe:
             updated_at=updated_at,
             detection_config=detection_config,
             tolerance_config=tolerance_config,
-            pixel_to_mm=detection_data.get("pixel_to_mm", 0.00644)
+            pixel_to_mm=detection_data.get("pixel_to_mm", 0.00644),
         )
 
     def to_json(self) -> str:
@@ -88,6 +90,6 @@ class Recipe:
         return json.dumps(self.to_dict(), indent=2)
 
     @classmethod
-    def from_json(cls, json_str: str) -> 'Recipe':
+    def from_json(cls, json_str: str) -> "Recipe":
         """Create from JSON string"""
         return cls.from_dict(json.loads(json_str))
