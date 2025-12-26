@@ -6,5 +6,6 @@ class MeasureStatus(Enum):
     """Status of a measurement result"""
     OK = auto()
     NG = auto()
+    NONE = auto()      # Tolerance checking disabled
     PARTIAL = auto()
     SKIPPED = auto()
