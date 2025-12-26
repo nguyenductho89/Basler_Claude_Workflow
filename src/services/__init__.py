@@ -6,6 +6,7 @@ from .calibration_service import CalibrationService
 from .thread_manager import ThreadManager, ProcessResult
 from .recipe_service import RecipeService
 from .image_saver import ImageSaver
+from .io_service import IOService
 
 __all__ = [
     'BaslerGigECamera',
@@ -15,5 +16,6 @@ __all__ = [
     'ThreadManager',
     'ProcessResult',
     'RecipeService',
-    'ImageSaver'
+    'ImageSaver',
+    'IOService'
 ]

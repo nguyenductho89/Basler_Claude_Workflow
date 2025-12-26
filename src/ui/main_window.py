@@ -11,7 +11,9 @@ from ..services.calibration_service import CalibrationService
 from ..services.thread_manager import ThreadManager, ProcessResult
 from ..services.recipe_service import RecipeService
 from ..services.image_saver import ImageSaver
+from ..services.io_service import IOService
 from ..domain.config import DetectionConfig, ToleranceConfig
+from ..domain.io_config import IOConfig, IOMode
 from ..domain.entities import CircleResult, CalibrationData
 from ..domain.enums import MeasureStatus
 from ..domain.recipe import Recipe
@@ -27,6 +29,7 @@ from .panels.control_panel import ControlPanel
 from .panels.results_panel import ResultsPanel
 from .panels.history_panel import HistoryPanel
 from .panels.statistics_panel import StatisticsPanel
+from .panels.io_panel import IOPanel
 from .dialogs.calibration_dialog import CalibrationDialog
 from .dialogs.recipe_dialog import RecipeDialog
 
@@ -49,6 +52,7 @@ class MainWindow:
         self._visualizer = CircleVisualizer()
         self._recipe_service = RecipeService()
         self._image_saver = ImageSaver()
+        self._io_service = IOService()
 
         # Thread manager
         self._thread_manager = ThreadManager(
@@ -241,6 +245,14 @@ class MainWindow:
         self.statistics_panel = StatisticsPanel(right_frame)
         self.statistics_panel.pack(fill=tk.X, pady=(0, 10))
 
+        # IO Panel
+        self.io_panel = IOPanel(
+            right_frame,
+            self._io_service,
+            on_trigger=self._on_io_trigger
+        )
+        self.io_panel.pack(fill=tk.X, pady=(0, 10))
+
         # Status bar with FPS
         status_frame = ttk.Frame(self._root)
         status_frame.pack(fill=tk.X, side=tk.BOTTOM)
@@ -431,6 +443,10 @@ class MainWindow:
                             result.display_frame
                         )
 
+                    # Send IO result to PLC
+                    overall_ok = ng_count == 0
+                    self._send_io_result(overall_ok)
+
                 # Update FPS counter
                 self._frame_count += 1
                 import time
@@ -477,7 +493,8 @@ class MainWindow:
             "- Calibration support\n"
             "- Measurement history\n"
             "- Recipe management\n"
-            "- Production statistics\n\n"
+            "- Production statistics\n"
+            "- PLC/IO integration\n\n"
             "Camera: Basler acA4600-7gc\n"
             "Lens: Telecentric HK-YC10-80H"
         )
@@ -625,10 +642,28 @@ class MainWindow:
         else:
             self._update_status("NG image saving disabled")
 
+    def _on_io_trigger(self) -> None:
+        """Handle IO trigger signal"""
+        logger.info("IO trigger received")
+        # If camera is connected and running, the next frame will be processed
+        # This is useful for hardware trigger mode
+        if self._camera.is_connected and self._is_running:
+            self._update_status("Trigger received - processing...")
+
+    def _send_io_result(self, ok: bool) -> None:
+        """Send inspection result to PLC"""
+        if self._io_service.is_running:
+            self._io_service.set_result(ok)
+            logger.debug(f"IO result sent: {'OK' if ok else 'NG'}")
+
     def _on_close(self) -> None:
         """Handle window close"""
         if self._camera.is_connected:
             self._on_camera_disconnect()
+
+        # Cleanup IO service
+        if self._io_service.is_running:
+            self._io_service.cleanup()
 
         self._root.destroy()
         logger.info("Application closed")
