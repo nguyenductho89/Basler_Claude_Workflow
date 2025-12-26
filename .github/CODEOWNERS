@@ -1,0 +1,33 @@
+# CODEOWNERS - Defines code owners for automatic review requests
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owner for everything
+* @nguyenductho89
+
+# Domain layer - Core business logic
+/src/domain/ @nguyenductho89
+
+# Services layer - Business services
+/src/services/ @nguyenductho89
+
+# UI layer
+/src/ui/ @nguyenductho89
+
+# Infrastructure
+/src/infrastructure/ @nguyenductho89
+
+# Tests
+/tests/ @nguyenductho89
+
+# CI/CD and GitHub configuration
+/.github/ @nguyenductho89
+
+# Configuration files
+*.toml @nguyenductho89
+*.ini @nguyenductho89
+*.yaml @nguyenductho89
+*.yml @nguyenductho89
+
+# Documentation
+*.md @nguyenductho89
+/docs/ @nguyenductho89
