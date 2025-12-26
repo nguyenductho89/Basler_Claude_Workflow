@@ -2,9 +2,13 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 import logging
-from typing import Optional
+from typing import Optional, List
 
 from ..services.camera_service import BaslerGigECamera
+from ..services.detector_service import CircleDetector
+from ..services.visualizer_service import CircleVisualizer
+from ..domain.config import DetectionConfig, ToleranceConfig
+from ..domain.entities import CircleResult
 from ..utils.constants import (
     APP_NAME, APP_VERSION,
     WINDOW_WIDTH, WINDOW_HEIGHT,
@@ -13,6 +17,8 @@ from ..utils.constants import (
 )
 from .panels.video_canvas import VideoCanvas
 from .panels.camera_panel import CameraPanel
+from .panels.control_panel import ControlPanel
+from .panels.results_panel import ResultsPanel
 
 logger = logging.getLogger(__name__)
 
@@ -24,14 +30,19 @@ class MainWindow:
         self._root = tk.Tk()
         self._root.title(f"{APP_NAME} v{APP_VERSION}")
         self._root.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
-        self._root.minsize(800, 600)
+        self._root.minsize(1000, 700)
 
         # Services
         self._camera = BaslerGigECamera()
+        self._detector = CircleDetector()
+        self._visualizer = CircleVisualizer()
 
         # State
         self._is_running = False
         self._update_job: Optional[str] = None
+        self._detection_enabled = True
+        self._tolerance_config = ToleranceConfig()
+        self._last_circles: List[CircleResult] = []
 
         # Setup UI
         self._setup_ui()
@@ -52,10 +63,28 @@ class MainWindow:
         self.video_canvas = VideoCanvas(left_frame, VIDEO_WIDTH, VIDEO_HEIGHT)
         self.video_canvas.pack(fill=tk.BOTH, expand=True)
 
-        # Right panel - Controls
-        right_frame = ttk.Frame(main_frame, width=300)
-        right_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=(10, 0))
-        right_frame.pack_propagate(False)
+        # Right panel - Controls (scrollable)
+        right_outer = ttk.Frame(main_frame, width=320)
+        right_outer.pack(side=tk.RIGHT, fill=tk.Y, padx=(10, 0))
+        right_outer.pack_propagate(False)
+
+        # Create canvas for scrolling
+        canvas = tk.Canvas(right_outer, width=300, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(right_outer, orient=tk.VERTICAL, command=canvas.yview)
+        scrollable_frame = ttk.Frame(canvas)
+
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+
+        canvas.create_window((0, 0), window=scrollable_frame, anchor=tk.NW)
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        right_frame = scrollable_frame
 
         # Camera panel
         self.camera_panel = CameraPanel(
@@ -89,12 +118,30 @@ class MainWindow:
         )
         self.exposure_label.pack(anchor=tk.W)
 
-        # Info panel
-        info_frame = ttk.LabelFrame(right_frame, text="Information", padding=10)
-        info_frame.pack(fill=tk.X, pady=(0, 10))
+        # Detection toggle
+        detect_toggle_frame = ttk.Frame(right_frame)
+        detect_toggle_frame.pack(fill=tk.X, pady=(0, 10))
 
-        self.info_text = tk.Text(info_frame, height=8, width=30, state=tk.DISABLED)
-        self.info_text.pack(fill=tk.X)
+        self.detection_var = tk.BooleanVar(value=True)
+        self.detection_check = ttk.Checkbutton(
+            detect_toggle_frame,
+            text="Enable Circle Detection",
+            variable=self.detection_var,
+            command=self._on_detection_toggle
+        )
+        self.detection_check.pack(anchor=tk.W)
+
+        # Control panel (Detection settings)
+        self.control_panel = ControlPanel(
+            right_frame,
+            on_config_change=self._on_config_change,
+            on_tolerance_change=self._on_tolerance_change
+        )
+        self.control_panel.pack(fill=tk.X, pady=(0, 10))
+
+        # Results panel
+        self.results_panel = ResultsPanel(right_frame)
+        self.results_panel.pack(fill=tk.X, pady=(0, 10))
 
         # Status bar
         status_frame = ttk.Frame(self._root)
@@ -112,6 +159,7 @@ class MainWindow:
         """Setup keyboard and window bindings"""
         self._root.protocol("WM_DELETE_WINDOW", self._on_close)
         self._root.bind("<Escape>", lambda e: self._on_close())
+        self._root.bind("<space>", lambda e: self._toggle_detection())
 
     def _on_camera_refresh(self):
         """Refresh camera device list"""
@@ -130,8 +178,7 @@ class MainWindow:
         if success:
             self.camera_panel.set_connected(True, self._camera.device_info)
             self._start_video_update()
-            self._update_status("Camera connected")
-            self._update_info()
+            self._update_status("Camera connected - Circle detection active")
         else:
             messagebox.showerror("Error", "Failed to connect to camera")
             self._update_status("Connection failed")
@@ -142,8 +189,8 @@ class MainWindow:
         self._camera.disconnect()
         self.camera_panel.set_connected(False)
         self.video_canvas.clear()
+        self.results_panel.clear()
         self._update_status("Camera disconnected")
-        self._update_info()
 
     def _on_exposure_change(self, value: str) -> None:
         """Handle exposure slider change"""
@@ -152,6 +199,31 @@ class MainWindow:
 
         if self._camera.is_connected:
             self._camera.set_exposure(exposure)
+
+    def _on_detection_toggle(self) -> None:
+        """Handle detection enable/disable"""
+        self._detection_enabled = self.detection_var.get()
+        if self._detection_enabled:
+            self._update_status("Circle detection enabled")
+        else:
+            self._update_status("Circle detection disabled")
+            self.results_panel.clear()
+
+    def _toggle_detection(self) -> None:
+        """Toggle detection with spacebar"""
+        self.detection_var.set(not self.detection_var.get())
+        self._on_detection_toggle()
+
+    def _on_config_change(self, config: DetectionConfig) -> None:
+        """Handle detection config change"""
+        self._detector.update_config(config)
+        self._visualizer.update_config(config)
+        logger.debug("Detection config updated")
+
+    def _on_tolerance_change(self, tolerance: ToleranceConfig) -> None:
+        """Handle tolerance config change"""
+        self._tolerance_config = tolerance
+        logger.debug(f"Tolerance config updated: enabled={tolerance.enabled}")
 
     def _start_video_update(self) -> None:
         """Start the video update loop"""
@@ -166,14 +238,34 @@ class MainWindow:
             self._update_job = None
 
     def _update_video(self) -> None:
-        """Update video frame"""
+        """Update video frame with circle detection"""
         if not self._is_running or not self._camera.is_connected:
             return
 
         try:
             frame = self._camera.grab_frame()
             if frame is not None:
-                self.video_canvas.update_frame(frame)
+                if self._detection_enabled:
+                    # Detect circles
+                    circles, binary = self._detector.detect(frame)
+                    self._last_circles = circles
+
+                    # Draw visualization
+                    display_frame = self._visualizer.draw(
+                        frame,
+                        circles,
+                        self._tolerance_config
+                    )
+
+                    # Update results panel
+                    self.results_panel.update_results(circles)
+
+                    # Display
+                    self.video_canvas.update_frame(display_frame)
+                else:
+                    # Just display raw frame
+                    self.video_canvas.update_frame(frame)
+
         except Exception as e:
             logger.error(f"Error updating video: {e}")
 
@@ -184,22 +276,6 @@ class MainWindow:
         """Update status bar message"""
         self.status_bar.config(text=message)
         logger.info(message)
-
-    def _update_info(self) -> None:
-        """Update info panel"""
-        self.info_text.config(state=tk.NORMAL)
-        self.info_text.delete(1.0, tk.END)
-
-        if self._camera.is_connected:
-            info = self._camera.get_info()
-            text = f"Model: {info.get('model', 'N/A')}\n"
-            text += f"Serial: {info.get('serial', 'N/A')}\n"
-            text += f"Exposure: {info.get('exposure_us', 'N/A')} us\n"
-        else:
-            text = "No camera connected"
-
-        self.info_text.insert(tk.END, text)
-        self.info_text.config(state=tk.DISABLED)
 
     def _on_close(self) -> None:
         """Handle window close"""
