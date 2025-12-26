@@ -718,15 +718,270 @@ Tốc độ băng tải = 100 × 100mm/min = 10,000 mm/min = 10 m/min
 
 ---
 
-## 11. Timeline Dự Kiến
+## 11. Sprint Plan & Release Roadmap
 
-| Giai đoạn | Hoạt động |
-|-----------|-----------|
-| **Phase 1** | Thiết kế chi tiết & Mua sắm thiết bị |
-| **Phase 2** | Phát triển phần mềm |
-| **Phase 3** | Tích hợp & FAT |
-| **Phase 4** | Lắp đặt & SAT |
-| **Phase 5** | Training & Bàn giao |
+### 11.1 Tổng Quan Release
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           RELEASE ROADMAP                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐   ┌─────────────┐     │
+│  │   MVP 1.0   │──►│ Release 1.1 │──►│ Release 1.2 │──►│ Release 2.0 │     │
+│  │  Sprint 1-2 │   │  Sprint 3-4 │   │  Sprint 5   │   │  Sprint 6-7 │     │
+│  └─────────────┘   └─────────────┘   └─────────────┘   └─────────────┘     │
+│        │                 │                 │                 │              │
+│        ▼                 ▼                 ▼                 ▼              │
+│  ┌───────────┐    ┌───────────┐    ┌───────────┐    ┌───────────┐         │
+│  │ Camera    │    │ Calibrate │    │ Recipe    │    │ PLC/IO    │         │
+│  │ + Detect  │    │ + Tolerance│   │ + Reports │    │ + Full    │         │
+│  │ + Display │    │ + History │    │ + Export  │    │ Production│         │
+│  └───────────┘    └───────────┘    └───────────┘    └───────────┘         │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 11.2 MVP 1.0 - Core Functionality (Sprint 1-2)
+
+**Mục tiêu:** Hệ thống cơ bản hoạt động được, demo cho stakeholders
+
+#### Sprint 1: Camera & Live View
+
+| ID | Task | Priority | Story Points |
+|----|------|----------|--------------|
+| S1-01 | Project setup (structure, dependencies) | High | 2 |
+| S1-02 | Camera Service - connect/disconnect | High | 5 |
+| S1-03 | Camera Service - grab frame | High | 3 |
+| S1-04 | Main Window UI layout (Tkinter) | High | 5 |
+| S1-05 | Video Canvas - live display | High | 5 |
+| S1-06 | Camera Panel - device list, buttons | High | 3 |
+| S1-07 | Basic error handling | Medium | 3 |
+| **Total** | | | **26 SP** |
+
+**Deliverables Sprint 1:**
+- [x] Kết nối camera Basler qua GigE
+- [x] Hiển thị live stream
+- [x] Nút Connect/Disconnect hoạt động
+- [x] Chọn camera từ danh sách
+
+#### Sprint 2: Circle Detection & Visualization
+
+| ID | Task | Priority | Story Points |
+|----|------|----------|--------------|
+| S2-01 | Circle Detector - preprocessing | High | 3 |
+| S2-02 | Circle Detector - contour detection | High | 5 |
+| S2-03 | Circle Detector - circularity filter | High | 3 |
+| S2-04 | Circle Detector - measurement calc | High | 5 |
+| S2-05 | Visualizer - draw edge | High | 3 |
+| S2-06 | Visualizer - draw diameter line | Medium | 2 |
+| S2-07 | Visualizer - draw label | Medium | 3 |
+| S2-08 | Control Panel - detection params | Medium | 3 |
+| S2-09 | Results Panel - basic display | Medium | 3 |
+| **Total** | | | **30 SP** |
+
+**Deliverables Sprint 2 (MVP 1.0):**
+- [x] Tự động phát hiện hình tròn
+- [x] Hiển thị edge detection overlay
+- [x] Hiển thị đường kính + label
+- [x] Điều chỉnh tham số detection cơ bản
+
+```
+MVP 1.0 Features:
+✅ Camera GigE connection
+✅ Live streaming
+✅ Auto circle detection
+✅ Diameter measurement display
+✅ Basic parameter adjustment
+```
+
+---
+
+### 11.3 Release 1.1 - Measurement Quality (Sprint 3-4)
+
+**Mục tiêu:** Đo lường chính xác, có thể dùng cho testing
+
+#### Sprint 3: Calibration & Tolerance
+
+| ID | Task | Priority | Story Points |
+|----|------|----------|--------------|
+| S3-01 | Calibration Service | High | 5 |
+| S3-02 | Calibration Dialog UI | High | 5 |
+| S3-03 | Pixel-to-mm conversion accurate | High | 3 |
+| S3-04 | Tolerance Config model | High | 3 |
+| S3-05 | Tolerance checking logic | High | 3 |
+| S3-06 | OK/NG color display (green/red) | High | 2 |
+| S3-07 | Exposure time control | Medium | 3 |
+| S3-08 | Save/Load calibration data | Medium | 3 |
+| **Total** | | | **27 SP** |
+
+#### Sprint 4: History & Threading
+
+| ID | Task | Priority | Story Points |
+|----|------|----------|--------------|
+| S4-01 | Threading - Camera thread | High | 5 |
+| S4-02 | Threading - Processing thread | High | 5 |
+| S4-03 | Queue-based communication | High | 3 |
+| S4-04 | Measurement history list | Medium | 3 |
+| S4-05 | History Panel UI | Medium | 3 |
+| S4-06 | Clear history function | Low | 1 |
+| S4-07 | Performance optimization | Medium | 5 |
+| S4-08 | Unit tests - Detector | Medium | 3 |
+| **Total** | | | **28 SP** |
+
+**Deliverables Release 1.1:**
+- [x] Calibration với mẫu chuẩn
+- [x] Kiểm tra dung sai OK/NG
+- [x] Lưu lịch sử đo
+- [x] Multi-threading ổn định
+- [x] Điều chỉnh exposure time
+
+```
+Release 1.1 Features:
+✅ Everything in MVP 1.0
+✅ Calibration system
+✅ Tolerance checking (OK/NG)
+✅ Measurement history
+✅ Multi-threaded processing
+✅ Exposure control
+```
+
+---
+
+### 11.4 Release 1.2 - Production Ready (Sprint 5)
+
+**Mục tiêu:** Sẵn sàng cho môi trường sản xuất (không có PLC)
+
+#### Sprint 5: Recipe & Reporting
+
+| ID | Task | Priority | Story Points |
+|----|------|----------|--------------|
+| S5-01 | Recipe model & service | High | 5 |
+| S5-02 | Recipe Dialog - save/load | High | 5 |
+| S5-03 | Recipe selection dropdown | High | 3 |
+| S5-04 | Statistics calculation | Medium | 3 |
+| S5-05 | Statistics Panel UI | Medium | 3 |
+| S5-06 | Export to CSV | Medium | 3 |
+| S5-07 | Log file system | Medium | 3 |
+| S5-08 | NG image saving | Medium | 3 |
+| S5-09 | Configuration file (JSON) | Medium | 2 |
+| **Total** | | | **30 SP** |
+
+**Deliverables Release 1.2:**
+- [x] Recipe management (save/load/switch)
+- [x] Thống kê OK/NG
+- [x] Export CSV report
+- [x] Lưu ảnh NG
+- [x] Logging system
+
+```
+Release 1.2 Features:
+✅ Everything in Release 1.1
+✅ Recipe management
+✅ Statistics display
+✅ CSV export
+✅ NG image archive
+✅ Comprehensive logging
+```
+
+---
+
+### 11.5 Release 2.0 - Full Production (Sprint 6-7) 🎯
+
+**Mục tiêu:** Tích hợp PLC, sẵn sàng triển khai nhà máy
+
+#### Sprint 6: PLC/IO Integration
+
+| ID | Task | Priority | Story Points |
+|----|------|----------|--------------|
+| S6-01 | IO Service - NI-DAQmx driver | High | 8 |
+| S6-02 | IO Configuration model | High | 3 |
+| S6-03 | Digital Input reading | High | 3 |
+| S6-04 | Digital Output control | High | 3 |
+| S6-05 | Trigger signal handling | High | 5 |
+| S6-06 | OK/NG output signals | High | 3 |
+| S6-07 | IO Thread implementation | High | 5 |
+| S6-08 | IO Panel UI | Medium | 3 |
+| S6-09 | IO status indicators | Medium | 2 |
+| **Total** | | | **35 SP** |
+
+#### Sprint 7: Integration & Testing
+
+| ID | Task | Priority | Story Points |
+|----|------|----------|--------------|
+| S7-01 | Hardware trigger mode | High | 5 |
+| S7-02 | Full system integration | High | 5 |
+| S7-03 | Error recovery mechanisms | High | 5 |
+| S7-04 | Integration tests | High | 5 |
+| S7-05 | Performance testing | Medium | 3 |
+| S7-06 | Documentation update | Medium | 3 |
+| S7-07 | FAT preparation | Medium | 3 |
+| S7-08 | Bug fixes & polish | Medium | 5 |
+| **Total** | | | **34 SP** |
+
+**Deliverables Release 2.0:**
+- [x] PLC Digital I/O interface
+- [x] External trigger support
+- [x] OK/NG signal output
+- [x] System Ready/Error signals
+- [x] Full production mode
+
+```
+Release 2.0 Features (FINAL):
+✅ Everything in Release 1.2
+✅ PLC/IO integration
+✅ Hardware trigger mode
+✅ Digital output signals (OK/NG/Ready/Error)
+✅ Recipe selection via DI
+✅ Production-ready reliability
+```
+
+---
+
+### 11.6 Sprint Summary
+
+| Sprint | Release | Focus | Story Points |
+|--------|---------|-------|--------------|
+| Sprint 1 | MVP 1.0 | Camera & Live View | 26 |
+| Sprint 2 | MVP 1.0 | Detection & Display | 30 |
+| Sprint 3 | Release 1.1 | Calibration & Tolerance | 27 |
+| Sprint 4 | Release 1.1 | Threading & History | 28 |
+| Sprint 5 | Release 1.2 | Recipe & Reporting | 30 |
+| Sprint 6 | Release 2.0 | PLC/IO Integration | 35 |
+| Sprint 7 | Release 2.0 | Integration & Testing | 34 |
+| **Total** | | | **210 SP** |
+
+### 11.7 Feature Matrix by Release
+
+| Feature | MVP 1.0 | Rel 1.1 | Rel 1.2 | Rel 2.0 |
+|---------|:-------:|:-------:|:-------:|:-------:|
+| Camera Connection | ✅ | ✅ | ✅ | ✅ |
+| Live Streaming | ✅ | ✅ | ✅ | ✅ |
+| Auto Circle Detection | ✅ | ✅ | ✅ | ✅ |
+| Diameter Display | ✅ | ✅ | ✅ | ✅ |
+| Calibration | ❌ | ✅ | ✅ | ✅ |
+| Tolerance Check | ❌ | ✅ | ✅ | ✅ |
+| Multi-threading | ❌ | ✅ | ✅ | ✅ |
+| Measurement History | ❌ | ✅ | ✅ | ✅ |
+| Recipe Management | ❌ | ❌ | ✅ | ✅ |
+| Statistics | ❌ | ❌ | ✅ | ✅ |
+| CSV Export | ❌ | ❌ | ✅ | ✅ |
+| NG Image Save | ❌ | ❌ | ✅ | ✅ |
+| PLC/IO Interface | ❌ | ❌ | ❌ | ✅ |
+| Hardware Trigger | ❌ | ❌ | ❌ | ✅ |
+| OK/NG Signals | ❌ | ❌ | ❌ | ✅ |
+
+### 11.8 Risk per Sprint
+
+| Sprint | Risk Level | Main Risks | Mitigation |
+|--------|------------|------------|------------|
+| Sprint 1 | 🟢 Low | Camera driver issues | Test với Pylon Viewer trước |
+| Sprint 2 | 🟡 Medium | Detection accuracy | Tune parameters, test images |
+| Sprint 3 | 🟡 Medium | Calibration precision | Sử dụng mẫu chuẩn certified |
+| Sprint 4 | 🟡 Medium | Threading bugs | Careful queue management |
+| Sprint 5 | 🟢 Low | Standard features | Well-defined requirements |
+| Sprint 6 | 🔴 High | Hardware compatibility | Test I/O card sớm |
+| Sprint 7 | 🟡 Medium | Integration issues | Thorough testing |
 
 ---
 
@@ -822,7 +1077,7 @@ Với F/6.5 (mặc định):
 
 ---
 
-**Document Version:** 2.1
+**Document Version:** 2.2
 **Created Date:** 2025-12-26
 **Last Updated:** 2025-12-26
 **Author:** Claude AI Assistant
@@ -840,3 +1095,4 @@ Với F/6.5 (mặc định):
 | 1.3 | 2025-12-26 | Added automatic circle detection algorithm, detailed processing pipeline |
 | 2.0 | 2025-12-26 | Added User Stories, Use Cases, Sequence Diagram - PRD Complete |
 | 2.1 | 2025-12-26 | Fixed section numbering (Section 4 duplicate), unified FOV range (0.5mm~20mm) |
+| 2.2 | 2025-12-26 | Added Sprint Plan & Release Roadmap (MVP → Release 2.0 with PLC) |
