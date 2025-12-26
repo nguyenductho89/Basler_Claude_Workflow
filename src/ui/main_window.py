@@ -7,8 +7,9 @@ from typing import Optional, List
 from ..services.camera_service import BaslerGigECamera
 from ..services.detector_service import CircleDetector
 from ..services.visualizer_service import CircleVisualizer
+from ..services.calibration_service import CalibrationService
 from ..domain.config import DetectionConfig, ToleranceConfig
-from ..domain.entities import CircleResult
+from ..domain.entities import CircleResult, CalibrationData
 from ..utils.constants import (
     APP_NAME, APP_VERSION,
     WINDOW_WIDTH, WINDOW_HEIGHT,
@@ -19,6 +20,7 @@ from .panels.video_canvas import VideoCanvas
 from .panels.camera_panel import CameraPanel
 from .panels.control_panel import ControlPanel
 from .panels.results_panel import ResultsPanel
+from .dialogs.calibration_dialog import CalibrationDialog
 
 logger = logging.getLogger(__name__)
 
@@ -34,8 +36,12 @@ class MainWindow:
 
         # Services
         self._camera = BaslerGigECamera()
+        self._calibration = CalibrationService()
         self._detector = CircleDetector()
         self._visualizer = CircleVisualizer()
+
+        # Apply calibration to detector
+        self._apply_calibration()
 
         # State
         self._is_running = False
@@ -43,12 +49,36 @@ class MainWindow:
         self._detection_enabled = True
         self._tolerance_config = ToleranceConfig()
         self._last_circles: List[CircleResult] = []
+        self._last_frame = None
 
         # Setup UI
+        self._setup_menu()
         self._setup_ui()
         self._setup_bindings()
 
         logger.info("MainWindow initialized")
+
+    def _setup_menu(self) -> None:
+        """Setup menu bar"""
+        menubar = tk.Menu(self._root)
+        self._root.config(menu=menubar)
+
+        # File menu
+        file_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="File", menu=file_menu)
+        file_menu.add_command(label="Exit", command=self._on_close, accelerator="Esc")
+
+        # Tools menu
+        tools_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Tools", menu=tools_menu)
+        tools_menu.add_command(label="Calibration...", command=self._open_calibration_dialog)
+        tools_menu.add_separator()
+        tools_menu.add_command(label="Toggle Detection", command=self._toggle_detection, accelerator="Space")
+
+        # Help menu
+        help_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Help", menu=help_menu)
+        help_menu.add_command(label="About", command=self._show_about)
 
     def _setup_ui(self) -> None:
         """Setup the main window UI layout"""
@@ -118,6 +148,22 @@ class MainWindow:
         )
         self.exposure_label.pack(anchor=tk.W)
 
+        # Calibration info
+        calib_frame = ttk.LabelFrame(right_frame, text="Calibration", padding=10)
+        calib_frame.pack(fill=tk.X, pady=(0, 10))
+
+        self.calib_label = ttk.Label(calib_frame, text="")
+        self.calib_label.pack(anchor=tk.W)
+
+        self.calib_btn = ttk.Button(
+            calib_frame,
+            text="Open Calibration...",
+            command=self._open_calibration_dialog
+        )
+        self.calib_btn.pack(anchor=tk.W, pady=(5, 0))
+
+        self._update_calibration_label()
+
         # Detection toggle
         detect_toggle_frame = ttk.Frame(right_frame)
         detect_toggle_frame.pack(fill=tk.X, pady=(0, 10))
@@ -161,6 +207,41 @@ class MainWindow:
         self._root.bind("<Escape>", lambda e: self._on_close())
         self._root.bind("<space>", lambda e: self._toggle_detection())
 
+    def _apply_calibration(self) -> None:
+        """Apply calibration data to detector"""
+        config = self._detector.config
+        config.pixel_to_mm = self._calibration.pixel_to_mm
+        self._detector.update_config(config)
+        logger.info(f"Applied calibration: {config.pixel_to_mm:.6f} mm/px")
+
+    def _update_calibration_label(self) -> None:
+        """Update calibration info label"""
+        info = self._calibration.get_info()
+        if info["calibrated"]:
+            text = f"Calibrated: {info['pixel_to_mm']:.6f} mm/px"
+        else:
+            text = f"Default: {info['pixel_to_mm']:.6f} mm/px"
+        self.calib_label.config(text=text)
+
+    def _open_calibration_dialog(self) -> None:
+        """Open calibration dialog"""
+        CalibrationDialog(
+            self._root,
+            self._calibration,
+            self._get_current_frame,
+            self._on_calibration_complete
+        )
+
+    def _get_current_frame(self):
+        """Get current frame for calibration"""
+        return self._last_frame
+
+    def _on_calibration_complete(self, calibration: CalibrationData) -> None:
+        """Handle calibration complete"""
+        self._apply_calibration()
+        self._update_calibration_label()
+        self._update_status(f"Calibration applied: {calibration.pixel_to_mm:.6f} mm/px")
+
     def _on_camera_refresh(self):
         """Refresh camera device list"""
         self._update_status("Scanning for cameras...")
@@ -190,6 +271,7 @@ class MainWindow:
         self.camera_panel.set_connected(False)
         self.video_canvas.clear()
         self.results_panel.clear()
+        self._last_frame = None
         self._update_status("Camera disconnected")
 
     def _on_exposure_change(self, value: str) -> None:
@@ -216,6 +298,8 @@ class MainWindow:
 
     def _on_config_change(self, config: DetectionConfig) -> None:
         """Handle detection config change"""
+        # Preserve calibration when config changes
+        config.pixel_to_mm = self._calibration.pixel_to_mm
         self._detector.update_config(config)
         self._visualizer.update_config(config)
         logger.debug("Detection config updated")
@@ -245,6 +329,8 @@ class MainWindow:
         try:
             frame = self._camera.grab_frame()
             if frame is not None:
+                self._last_frame = frame.copy()
+
                 if self._detection_enabled:
                     # Detect circles
                     circles, binary = self._detector.detect(frame)
@@ -276,6 +362,18 @@ class MainWindow:
         """Update status bar message"""
         self.status_bar.config(text=message)
         logger.info(message)
+
+    def _show_about(self) -> None:
+        """Show about dialog"""
+        messagebox.showinfo(
+            "About",
+            f"{APP_NAME}\nVersion {APP_VERSION}\n\n"
+            "Automated Quality Inspection System\n"
+            "for measuring circular hole dimensions\n"
+            "on metal parts using Machine Vision.\n\n"
+            "Camera: Basler acA4600-7gc\n"
+            "Lens: Telecentric HK-YC10-80H"
+        )
 
     def _on_close(self) -> None:
         """Handle window close"""
