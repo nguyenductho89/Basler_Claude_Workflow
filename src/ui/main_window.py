@@ -1,4 +1,4 @@
-"""Main Window - Primary application window"""
+"""Main Window - Primary application window with multi-threading support"""
 import tkinter as tk
 from tkinter import ttk, messagebox
 import logging
@@ -8,6 +8,7 @@ from ..services.camera_service import BaslerGigECamera
 from ..services.detector_service import CircleDetector
 from ..services.visualizer_service import CircleVisualizer
 from ..services.calibration_service import CalibrationService
+from ..services.thread_manager import ThreadManager, ProcessResult
 from ..domain.config import DetectionConfig, ToleranceConfig
 from ..domain.entities import CircleResult, CalibrationData
 from ..utils.constants import (
@@ -20,13 +21,14 @@ from .panels.video_canvas import VideoCanvas
 from .panels.camera_panel import CameraPanel
 from .panels.control_panel import ControlPanel
 from .panels.results_panel import ResultsPanel
+from .panels.history_panel import HistoryPanel
 from .dialogs.calibration_dialog import CalibrationDialog
 
 logger = logging.getLogger(__name__)
 
 
 class MainWindow:
-    """Main application window"""
+    """Main application window with multi-threaded processing"""
 
     def __init__(self):
         self._root = tk.Tk()
@@ -40,6 +42,13 @@ class MainWindow:
         self._detector = CircleDetector()
         self._visualizer = CircleVisualizer()
 
+        # Thread manager
+        self._thread_manager = ThreadManager(
+            self._camera,
+            self._detector,
+            self._visualizer
+        )
+
         # Apply calibration to detector
         self._apply_calibration()
 
@@ -50,13 +59,15 @@ class MainWindow:
         self._tolerance_config = ToleranceConfig()
         self._last_circles: List[CircleResult] = []
         self._last_frame = None
+        self._frame_count = 0
+        self._last_fps_time = 0
 
         # Setup UI
         self._setup_menu()
         self._setup_ui()
         self._setup_bindings()
 
-        logger.info("MainWindow initialized")
+        logger.info("MainWindow initialized with multi-threading support")
 
     def _setup_menu(self) -> None:
         """Setup menu bar"""
@@ -66,6 +77,8 @@ class MainWindow:
         # File menu
         file_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="File", menu=file_menu)
+        file_menu.add_command(label="Export History...", command=self._export_history)
+        file_menu.add_separator()
         file_menu.add_command(label="Exit", command=self._on_close, accelerator="Esc")
 
         # Tools menu
@@ -74,6 +87,7 @@ class MainWindow:
         tools_menu.add_command(label="Calibration...", command=self._open_calibration_dialog)
         tools_menu.add_separator()
         tools_menu.add_command(label="Toggle Detection", command=self._toggle_detection, accelerator="Space")
+        tools_menu.add_command(label="Clear History", command=self._clear_history)
 
         # Help menu
         help_menu = tk.Menu(menubar, tearoff=0)
@@ -189,7 +203,11 @@ class MainWindow:
         self.results_panel = ResultsPanel(right_frame)
         self.results_panel.pack(fill=tk.X, pady=(0, 10))
 
-        # Status bar
+        # History panel
+        self.history_panel = HistoryPanel(right_frame)
+        self.history_panel.pack(fill=tk.X, pady=(0, 10))
+
+        # Status bar with FPS
         status_frame = ttk.Frame(self._root)
         status_frame.pack(fill=tk.X, side=tk.BOTTOM)
 
@@ -199,7 +217,16 @@ class MainWindow:
             relief=tk.SUNKEN,
             padding=5
         )
-        self.status_bar.pack(fill=tk.X)
+        self.status_bar.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        self.fps_label = ttk.Label(
+            status_frame,
+            text="FPS: --",
+            relief=tk.SUNKEN,
+            padding=5,
+            width=15
+        )
+        self.fps_label.pack(side=tk.RIGHT)
 
     def _setup_bindings(self) -> None:
         """Setup keyboard and window bindings"""
@@ -258,21 +285,22 @@ class MainWindow:
 
         if success:
             self.camera_panel.set_connected(True, self._camera.device_info)
-            self._start_video_update()
-            self._update_status("Camera connected - Circle detection active")
+            self._start_processing()
+            self._update_status("Camera connected - Multi-threaded processing active")
         else:
             messagebox.showerror("Error", "Failed to connect to camera")
             self._update_status("Connection failed")
 
     def _on_camera_disconnect(self) -> None:
         """Disconnect from camera"""
-        self._stop_video_update()
+        self._stop_processing()
         self._camera.disconnect()
         self.camera_panel.set_connected(False)
         self.video_canvas.clear()
         self.results_panel.clear()
         self._last_frame = None
         self._update_status("Camera disconnected")
+        self.fps_label.config(text="FPS: --")
 
     def _on_exposure_change(self, value: str) -> None:
         """Handle exposure slider change"""
@@ -285,6 +313,8 @@ class MainWindow:
     def _on_detection_toggle(self) -> None:
         """Handle detection enable/disable"""
         self._detection_enabled = self.detection_var.get()
+        self._thread_manager.set_detection_enabled(self._detection_enabled)
+
         if self._detection_enabled:
             self._update_status("Circle detection enabled")
         else:
@@ -298,7 +328,6 @@ class MainWindow:
 
     def _on_config_change(self, config: DetectionConfig) -> None:
         """Handle detection config change"""
-        # Preserve calibration when config changes
         config.pixel_to_mm = self._calibration.pixel_to_mm
         self._detector.update_config(config)
         self._visualizer.update_config(config)
@@ -307,56 +336,78 @@ class MainWindow:
     def _on_tolerance_change(self, tolerance: ToleranceConfig) -> None:
         """Handle tolerance config change"""
         self._tolerance_config = tolerance
+        self._thread_manager.set_tolerance_config(tolerance)
         logger.debug(f"Tolerance config updated: enabled={tolerance.enabled}")
 
-    def _start_video_update(self) -> None:
-        """Start the video update loop"""
-        self._is_running = True
-        self._update_video()
+    def _start_processing(self) -> None:
+        """Start multi-threaded processing"""
+        self._thread_manager.set_tolerance_config(self._tolerance_config)
+        self._thread_manager.set_detection_enabled(self._detection_enabled)
+        self._thread_manager.start()
 
-    def _stop_video_update(self) -> None:
-        """Stop the video update loop"""
+        self._is_running = True
+        self._frame_count = 0
+        self._last_fps_time = 0
+        self._update_ui()
+
+    def _stop_processing(self) -> None:
+        """Stop multi-threaded processing"""
         self._is_running = False
+        self._thread_manager.stop()
+
         if self._update_job:
             self._root.after_cancel(self._update_job)
             self._update_job = None
 
-    def _update_video(self) -> None:
-        """Update video frame with circle detection"""
-        if not self._is_running or not self._camera.is_connected:
+    def _update_ui(self) -> None:
+        """Update UI from processing results"""
+        if not self._is_running:
             return
 
         try:
-            frame = self._camera.grab_frame()
-            if frame is not None:
-                self._last_frame = frame.copy()
+            # Get result from queue (non-blocking)
+            result = self._thread_manager.get_result(timeout=0.01)
 
-                if self._detection_enabled:
-                    # Detect circles
-                    circles, binary = self._detector.detect(frame)
-                    self._last_circles = circles
+            if result is not None:
+                self._last_frame = result.frame.copy()
+                self._last_circles = result.circles
 
-                    # Draw visualization
-                    display_frame = self._visualizer.draw(
-                        frame,
-                        circles,
-                        self._tolerance_config
-                    )
+                # Update video display
+                self.video_canvas.update_frame(result.display_frame)
 
-                    # Update results panel
-                    self.results_panel.update_results(circles)
+                # Update results panel
+                self.results_panel.update_results(result.circles)
 
-                    # Display
-                    self.video_canvas.update_frame(display_frame)
-                else:
-                    # Just display raw frame
-                    self.video_canvas.update_frame(frame)
+                # Add to history (only if circles detected)
+                if result.circles:
+                    self.history_panel.add_measurement(result.circles)
+
+                # Update FPS counter
+                self._frame_count += 1
+                import time
+                current_time = time.time()
+                if self._last_fps_time == 0:
+                    self._last_fps_time = current_time
+                elif current_time - self._last_fps_time >= 1.0:
+                    fps = self._frame_count / (current_time - self._last_fps_time)
+                    self.fps_label.config(text=f"FPS: {fps:.1f}")
+                    self._frame_count = 0
+                    self._last_fps_time = current_time
 
         except Exception as e:
-            logger.error(f"Error updating video: {e}")
+            logger.error(f"Error updating UI: {e}")
 
         # Schedule next update
-        self._update_job = self._root.after(UI_UPDATE_INTERVAL, self._update_video)
+        self._update_job = self._root.after(UI_UPDATE_INTERVAL, self._update_ui)
+
+    def _export_history(self) -> None:
+        """Export history via history panel"""
+        self.history_panel._export_csv()
+
+    def _clear_history(self) -> None:
+        """Clear history"""
+        if messagebox.askyesno("Confirm", "Clear all measurement history?"):
+            self.history_panel.clear()
 
     def _update_status(self, message: str) -> None:
         """Update status bar message"""
@@ -371,6 +422,11 @@ class MainWindow:
             "Automated Quality Inspection System\n"
             "for measuring circular hole dimensions\n"
             "on metal parts using Machine Vision.\n\n"
+            "Features:\n"
+            "- Multi-threaded processing\n"
+            "- Real-time circle detection\n"
+            "- Calibration support\n"
+            "- Measurement history\n\n"
             "Camera: Basler acA4600-7gc\n"
             "Lens: Telecentric HK-YC10-80H"
         )
