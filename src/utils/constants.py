@@ -1,0 +1,32 @@
+"""Application constants"""
+
+# Application info
+APP_NAME = "Circle Measurement System"
+APP_VERSION = "1.0.0"
+
+# UI constants
+WINDOW_WIDTH = 1200
+WINDOW_HEIGHT = 800
+VIDEO_WIDTH = 800
+VIDEO_HEIGHT = 600
+
+# Camera defaults
+DEFAULT_EXPOSURE_US = 50.0
+GRAB_TIMEOUT_MS = 1000
+
+# Detection defaults
+DEFAULT_PIXEL_TO_MM = 0.00644
+DEFAULT_MIN_DIAMETER_MM = 1.0
+DEFAULT_MAX_DIAMETER_MM = 20.0
+DEFAULT_MIN_CIRCULARITY = 0.85
+DEFAULT_BLUR_KERNEL = 5
+DEFAULT_EDGE_MARGIN = 10
+
+# Colors (BGR)
+COLOR_OK = (0, 255, 0)  # Green
+COLOR_NG = (0, 0, 255)  # Red
+COLOR_EDGE = (255, 255, 0)  # Cyan
+COLOR_DIAMETER = (255, 0, 0)  # Blue
+
+# Update interval (ms)
+UI_UPDATE_INTERVAL = 33  # ~30 fps

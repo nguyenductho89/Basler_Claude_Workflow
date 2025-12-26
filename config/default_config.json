@@ -1,0 +1,25 @@
+{
+    "camera": {
+        "default_exposure_us": 50.0,
+        "trigger_mode": "software",
+        "pixel_format": "BGR8"
+    },
+    "detection": {
+        "pixel_to_mm": 0.00644,
+        "min_diameter_mm": 1.0,
+        "max_diameter_mm": 20.0,
+        "min_circularity": 0.85,
+        "blur_kernel": 5,
+        "edge_margin": 10
+    },
+    "tolerance": {
+        "enabled": false,
+        "nominal_mm": 10.0,
+        "tolerance_mm": 0.05
+    },
+    "display": {
+        "show_contours": true,
+        "show_diameter_line": true,
+        "show_labels": true
+    }
+}
