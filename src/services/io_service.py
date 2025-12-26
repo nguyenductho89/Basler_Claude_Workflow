@@ -67,7 +67,7 @@ class IOService:
         }
 
         # Trigger debounce
-        self._last_trigger_time = 0
+        self._last_trigger_time: float = 0.0
         self._last_trigger_state = False
 
         logger.info(f"IOService initialized in {self._config.mode.value} mode")

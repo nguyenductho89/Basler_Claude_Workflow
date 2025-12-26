@@ -30,9 +30,24 @@ jobs:
           ${{ env.PYTHON_PATH }} -m ruff format src/ tests/ --check --diff || echo "::warning::Some files need formatting. Run 'ruff format src/ tests/' to fix."
         continue-on-error: true
 
+  typecheck:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install type checking tools
+        run: |
+          ${{ env.PYTHON_PATH }} -m pip install mypy types-Pillow
+
+      - name: Run mypy type checker
+        run: |
+          ${{ env.PYTHON_PATH }} -m mypy src/ --config-file mypy.ini
+        continue-on-error: true
+
   test:
     runs-on: self-hosted
-    needs: lint
+    needs: [lint, typecheck]
 
     steps:
       - name: Checkout code

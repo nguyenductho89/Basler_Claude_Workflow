@@ -1,8 +1,8 @@
 """Logging configuration"""
 import logging
-import os
 from datetime import datetime
 from pathlib import Path
+from typing import List
 
 
 def setup_logging(log_dir: str = "logs", level: int = logging.INFO) -> None:
@@ -26,7 +26,7 @@ def setup_logging(log_dir: str = "logs", level: int = logging.INFO) -> None:
     date_format = "%Y-%m-%d %H:%M:%S"
 
     # Setup handlers
-    handlers = [
+    handlers: List[logging.Handler] = [
         logging.FileHandler(log_file, encoding='utf-8'),
         logging.StreamHandler()
     ]

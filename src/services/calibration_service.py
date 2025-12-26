@@ -145,7 +145,7 @@ class CalibrationService:
 
         # Find the largest circular contour
         best_circle = None
-        best_area = 0
+        best_area: float = 0.0
 
         for contour in contours:
             area = cv2.contourArea(contour)
