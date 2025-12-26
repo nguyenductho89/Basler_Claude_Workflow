@@ -9,8 +9,12 @@ from ..services.detector_service import CircleDetector
 from ..services.visualizer_service import CircleVisualizer
 from ..services.calibration_service import CalibrationService
 from ..services.thread_manager import ThreadManager, ProcessResult
+from ..services.recipe_service import RecipeService
+from ..services.image_saver import ImageSaver
 from ..domain.config import DetectionConfig, ToleranceConfig
 from ..domain.entities import CircleResult, CalibrationData
+from ..domain.enums import MeasureStatus
+from ..domain.recipe import Recipe
 from ..utils.constants import (
     APP_NAME, APP_VERSION,
     WINDOW_WIDTH, WINDOW_HEIGHT,
@@ -22,7 +26,9 @@ from .panels.camera_panel import CameraPanel
 from .panels.control_panel import ControlPanel
 from .panels.results_panel import ResultsPanel
 from .panels.history_panel import HistoryPanel
+from .panels.statistics_panel import StatisticsPanel
 from .dialogs.calibration_dialog import CalibrationDialog
+from .dialogs.recipe_dialog import RecipeDialog
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +47,8 @@ class MainWindow:
         self._calibration = CalibrationService()
         self._detector = CircleDetector()
         self._visualizer = CircleVisualizer()
+        self._recipe_service = RecipeService()
+        self._image_saver = ImageSaver()
 
         # Thread manager
         self._thread_manager = ThreadManager(
@@ -59,8 +67,11 @@ class MainWindow:
         self._tolerance_config = ToleranceConfig()
         self._last_circles: List[CircleResult] = []
         self._last_frame = None
+        self._last_display_frame = None
         self._frame_count = 0
         self._last_fps_time = 0
+        self._current_recipe: Optional[Recipe] = None
+        self._save_ng_images = False
 
         # Setup UI
         self._setup_menu()
@@ -78,8 +89,19 @@ class MainWindow:
         file_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="File", menu=file_menu)
         file_menu.add_command(label="Export History...", command=self._export_history)
+        file_menu.add_command(label="Export Statistics...", command=self._export_statistics)
         file_menu.add_separator()
         file_menu.add_command(label="Exit", command=self._on_close, accelerator="Esc")
+
+        # Recipe menu
+        recipe_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Recipe", menu=recipe_menu)
+        recipe_menu.add_command(label="Manage Recipes...", command=self._open_recipe_dialog)
+        recipe_menu.add_separator()
+        self._recipe_submenu = tk.Menu(recipe_menu, tearoff=0)
+        recipe_menu.add_cascade(label="Load Recipe", menu=self._recipe_submenu)
+        recipe_menu.add_command(label="Save Current as Recipe...", command=self._save_current_as_recipe)
+        self._update_recipe_submenu()
 
         # Tools menu
         tools_menu = tk.Menu(menubar, tearoff=0)
@@ -88,6 +110,14 @@ class MainWindow:
         tools_menu.add_separator()
         tools_menu.add_command(label="Toggle Detection", command=self._toggle_detection, accelerator="Space")
         tools_menu.add_command(label="Clear History", command=self._clear_history)
+        tools_menu.add_command(label="Reset Statistics", command=self._reset_statistics)
+        tools_menu.add_separator()
+        self._save_ng_var = tk.BooleanVar(value=False)
+        tools_menu.add_checkbutton(
+            label="Save NG Images",
+            variable=self._save_ng_var,
+            command=self._toggle_save_ng
+        )
 
         # Help menu
         help_menu = tk.Menu(menubar, tearoff=0)
@@ -206,6 +236,10 @@ class MainWindow:
         # History panel
         self.history_panel = HistoryPanel(right_frame)
         self.history_panel.pack(fill=tk.X, pady=(0, 10))
+
+        # Statistics panel
+        self.statistics_panel = StatisticsPanel(right_frame)
+        self.statistics_panel.pack(fill=tk.X, pady=(0, 10))
 
         # Status bar with FPS
         status_frame = ttk.Frame(self._root)
@@ -370,6 +404,7 @@ class MainWindow:
 
             if result is not None:
                 self._last_frame = result.frame.copy()
+                self._last_display_frame = result.display_frame.copy()
                 self._last_circles = result.circles
 
                 # Update video display
@@ -378,9 +413,23 @@ class MainWindow:
                 # Update results panel
                 self.results_panel.update_results(result.circles)
 
-                # Add to history (only if circles detected)
+                # Add to history and statistics (only if circles detected)
                 if result.circles:
                     self.history_panel.add_measurement(result.circles)
+
+                    # Update statistics
+                    ok_count = sum(1 for c in result.circles if c.status == MeasureStatus.OK)
+                    ng_count = sum(1 for c in result.circles if c.status == MeasureStatus.NG)
+                    self.statistics_panel.add_inspection(ok_count, ng_count)
+
+                    # Save NG images if enabled
+                    if self._save_ng_images and ng_count > 0:
+                        ng_circles = [c for c in result.circles if c.status == MeasureStatus.NG]
+                        self._image_saver.save_ng_image(
+                            result.frame,
+                            ng_circles,
+                            result.display_frame
+                        )
 
                 # Update FPS counter
                 self._frame_count += 1
@@ -426,10 +475,155 @@ class MainWindow:
             "- Multi-threaded processing\n"
             "- Real-time circle detection\n"
             "- Calibration support\n"
-            "- Measurement history\n\n"
+            "- Measurement history\n"
+            "- Recipe management\n"
+            "- Production statistics\n\n"
             "Camera: Basler acA4600-7gc\n"
             "Lens: Telecentric HK-YC10-80H"
         )
+
+    def _update_recipe_submenu(self) -> None:
+        """Update the recipe submenu with available recipes"""
+        self._recipe_submenu.delete(0, tk.END)
+        recipes = self._recipe_service.list_recipes()
+
+        if not recipes:
+            self._recipe_submenu.add_command(label="(No recipes)", state=tk.DISABLED)
+        else:
+            for recipe_name in recipes:
+                self._recipe_submenu.add_command(
+                    label=recipe_name,
+                    command=lambda name=recipe_name: self._load_recipe(name)
+                )
+
+    def _open_recipe_dialog(self) -> None:
+        """Open recipe management dialog"""
+        RecipeDialog(
+            self._root,
+            self._recipe_service,
+            self._on_recipe_load
+        )
+        self._update_recipe_submenu()
+
+    def _on_recipe_load(self, recipe: Recipe) -> None:
+        """Handle recipe load from dialog"""
+        self._apply_recipe(recipe)
+
+    def _load_recipe(self, name: str) -> None:
+        """Load a recipe by name"""
+        recipe = self._recipe_service.get_recipe(name)
+        if recipe:
+            self._apply_recipe(recipe)
+        else:
+            messagebox.showerror("Error", f"Failed to load recipe: {name}")
+
+    def _apply_recipe(self, recipe: Recipe) -> None:
+        """Apply a recipe to current settings"""
+        self._current_recipe = recipe
+
+        # Apply detection config
+        self._detector.update_config(recipe.detection_config)
+        self._visualizer.update_config(recipe.detection_config)
+
+        # Apply tolerance config
+        self._tolerance_config = recipe.tolerance_config
+        self._thread_manager.set_tolerance_config(recipe.tolerance_config)
+
+        # Apply calibration
+        self._calibration.set_pixel_to_mm(recipe.pixel_to_mm)
+        self._apply_calibration()
+        self._update_calibration_label()
+
+        # Update UI controls
+        self.control_panel.set_config(recipe.detection_config)
+        self.control_panel.set_tolerance(recipe.tolerance_config)
+
+        self._root.title(f"{APP_NAME} v{APP_VERSION} - {recipe.name}")
+        self._update_status(f"Recipe loaded: {recipe.name}")
+        logger.info(f"Recipe applied: {recipe.name}")
+
+    def _save_current_as_recipe(self) -> None:
+        """Save current settings as a new recipe"""
+        from tkinter import simpledialog
+        name = simpledialog.askstring(
+            "Save Recipe",
+            "Enter recipe name:",
+            parent=self._root
+        )
+        if not name:
+            return
+
+        description = simpledialog.askstring(
+            "Save Recipe",
+            "Enter recipe description (optional):",
+            parent=self._root
+        ) or ""
+
+        recipe = self._recipe_service.create_recipe(
+            name=name,
+            description=description,
+            detection_config=self._detector.config,
+            tolerance_config=self._tolerance_config,
+            pixel_to_mm=self._calibration.pixel_to_mm
+        )
+
+        if self._recipe_service.save_recipe(recipe):
+            self._current_recipe = recipe
+            self._root.title(f"{APP_NAME} v{APP_VERSION} - {recipe.name}")
+            self._update_recipe_submenu()
+            self._update_status(f"Recipe saved: {recipe.name}")
+        else:
+            messagebox.showerror("Error", "Failed to save recipe")
+
+    def _reset_statistics(self) -> None:
+        """Reset production statistics"""
+        if messagebox.askyesno("Confirm", "Reset all production statistics?"):
+            self.statistics_panel.reset()
+            self._update_status("Statistics reset")
+
+    def _export_statistics(self) -> None:
+        """Export statistics to CSV"""
+        from tkinter import filedialog
+        import csv
+        from datetime import datetime
+
+        filepath = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            filetypes=[("CSV files", "*.csv")],
+            initialfile=f"statistics_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        )
+
+        if not filepath:
+            return
+
+        try:
+            stats = self.statistics_panel.get_statistics()
+            with open(filepath, 'w', newline='', encoding='utf-8') as f:
+                writer = csv.writer(f)
+                writer.writerow(["Metric", "Value"])
+                writer.writerow(["Total Inspections", stats["total_inspections"]])
+                writer.writerow(["Total Circles", stats["total_circles"]])
+                writer.writerow(["OK Count", stats["ok_count"]])
+                writer.writerow(["NG Count", stats["ng_count"]])
+                writer.writerow(["OK Rate (%)", f"{stats['ok_rate']:.2f}"])
+                writer.writerow(["Runtime (seconds)", f"{stats['runtime_seconds']:.0f}"])
+
+                if self._current_recipe:
+                    writer.writerow(["Recipe", self._current_recipe.name])
+
+            self._update_status(f"Statistics exported to {filepath}")
+            logger.info(f"Statistics exported: {filepath}")
+        except Exception as e:
+            logger.error(f"Failed to export statistics: {e}")
+            messagebox.showerror("Error", f"Failed to export statistics: {e}")
+
+    def _toggle_save_ng(self) -> None:
+        """Toggle NG image saving"""
+        self._save_ng_images = self._save_ng_var.get()
+        if self._save_ng_images:
+            self._update_status("NG image saving enabled")
+        else:
+            self._update_status("NG image saving disabled")
 
     def _on_close(self) -> None:
         """Handle window close"""

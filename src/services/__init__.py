@@ -4,6 +4,8 @@ from .detector_service import CircleDetector
 from .visualizer_service import CircleVisualizer
 from .calibration_service import CalibrationService
 from .thread_manager import ThreadManager, ProcessResult
+from .recipe_service import RecipeService
+from .image_saver import ImageSaver
 
 __all__ = [
     'BaslerGigECamera',
@@ -11,5 +13,7 @@ __all__ = [
     'CircleVisualizer',
     'CalibrationService',
     'ThreadManager',
-    'ProcessResult'
+    'ProcessResult',
+    'RecipeService',
+    'ImageSaver'
 ]

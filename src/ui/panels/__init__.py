@@ -4,5 +4,13 @@ from .camera_panel import CameraPanel
 from .control_panel import ControlPanel
 from .results_panel import ResultsPanel
 from .history_panel import HistoryPanel
+from .statistics_panel import StatisticsPanel
 
-__all__ = ['VideoCanvas', 'CameraPanel', 'ControlPanel', 'ResultsPanel', 'HistoryPanel']
+__all__ = [
+    'VideoCanvas',
+    'CameraPanel',
+    'ControlPanel',
+    'ResultsPanel',
+    'HistoryPanel',
+    'StatisticsPanel'
+]

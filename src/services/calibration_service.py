@@ -41,6 +41,19 @@ class CalibrationService:
         """Check if calibration data exists"""
         return self._calibration_data is not None
 
+    def set_pixel_to_mm(self, value: float) -> None:
+        """Set pixel to mm ratio directly (used when loading recipes)"""
+        if value <= 0:
+            raise ValueError("Pixel to mm ratio must be positive")
+
+        self._calibration_data = CalibrationData(
+            pixel_to_mm=value,
+            calibrated_at=datetime.now(),
+            reference_size_mm=0,
+            reference_size_px=0
+        )
+        logger.info(f"Pixel to mm ratio set to: {value:.6f}")
+
     def calibrate(
         self,
         reference_size_mm: float,
