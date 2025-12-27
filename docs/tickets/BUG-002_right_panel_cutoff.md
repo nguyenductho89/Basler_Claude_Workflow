@@ -7,7 +7,7 @@ Right panel chứa các buttons, sliders và controls bị cắt mất phần b�
 **Medium** - Ảnh hưởng UX nhưng không block chức năng chính
 
 ## Status
-Open
+**Resolved** - Fixed in commit `3609c25`
 
 ## Environment
 - Framework: Tkinter
@@ -96,3 +96,14 @@ canvas = tk.Canvas(right_outer, width=300, highlightthickness=0)
 
 ## Labels
 `bug`, `ui`, `tkinter`, `medium-priority`
+
+## Resolution
+Fixed với responsive layout approach:
+- Bỏ fixed width constraints
+- Canvas tự động adjust width theo content
+- Thêm padding (5, 0, 15, 0) cho scrollable frame
+- Thêm mouse wheel scrolling
+- Set minimum width 340px
+
+**Commit:** `3609c25`
+**Date:** 2025-12-27
