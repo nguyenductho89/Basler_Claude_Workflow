@@ -107,6 +107,7 @@ Xây dựng hệ thống kiểm tra chất lượng tự động (Automated Qual
 | US-09 | Engineer | Tôi muốn lưu/tải recipe cho các loại sản phẩm khác nhau | Medium |
 | US-10 | Engineer | Tôi muốn xem thống kê OK/NG theo thời gian | Low |
 | US-11 | Manager | Tôi muốn xuất báo cáo đo lường theo ca/ngày | Low |
+| US-12 | Supervisor | Tôi muốn giám sát sản xuất từ xa qua trình duyệt web mà không cần cài phần mềm | Medium |
 
 ### 3.2 Acceptance Criteria
 
@@ -184,6 +185,16 @@ Xây dựng hệ thống kiểm tra chất lượng tự động (Automated Qual
 |-------|---------------------|--------|
 | AC-11.1 | GIVEN history data, WHEN export CSV clicked, THEN file with timestamp created | ✅ Pass |
 | AC-11.2 | GIVEN CSV file, WHEN opened, THEN contains: time, diameter, status, recipe columns | ✅ Pass |
+
+#### US-12: Web Dashboard Remote Monitoring
+| AC ID | Acceptance Criteria | Status |
+|-------|---------------------|--------|
+| AC-12.1 | GIVEN web server running, WHEN browser accesses http://[ip]:8080, THEN dashboard displays | 🔲 Pending |
+| AC-12.2 | GIVEN dashboard open, WHEN camera streaming, THEN live video shows at ≥5 FPS | 🔲 Pending |
+| AC-12.3 | GIVEN dashboard open, WHEN circles detected, THEN results update within 500ms | 🔲 Pending |
+| AC-12.4 | GIVEN dashboard open, WHEN statistics change, THEN values update every 5 seconds | 🔲 Pending |
+| AC-12.5 | GIVEN dashboard, WHEN export clicked, THEN CSV downloads to browser | 🔲 Pending |
+| AC-12.6 | GIVEN multiple browsers connected, WHEN system running, THEN all receive updates | 🔲 Pending |
 
 ### 3.3 Use Cases
 
@@ -363,6 +374,23 @@ Postcondition: Hệ thống đã được calibrate
 - Xuất báo cáo Excel/PDF
 - Tích hợp MES (Manufacturing Execution System)
 
+#### F10: Web Dashboard (Remote Monitoring)
+- **Mô tả**: Giao diện web cho phép giám sát từ xa qua trình duyệt
+- **Yêu cầu**:
+  - Web server chạy background trên port 8080
+  - Hiển thị live video stream (MJPEG, 10 FPS)
+  - Hiển thị kết quả đo real-time qua WebSocket
+  - Hiển thị thống kê sản xuất
+  - Hiển thị trạng thái IO/PLC
+  - Hỗ trợ nhiều client đồng thời
+  - Responsive design cho mobile/tablet
+  - Không yêu cầu cài đặt phần mềm (chỉ cần browser)
+
+**Giới hạn:**
+- Read-only (chỉ giám sát, không điều khiển)
+- Không thay đổi được parameters
+- Không thực hiện calibration
+
 ---
 
 ## 5. Yêu Cầu Phi Chức Năng
@@ -403,6 +431,19 @@ Postcondition: Hệ thống đã được calibrate
 | **Độ ẩm** | 20% ~ 80% RH (không ngưng tụ) |
 | **Rung động** | Chịu được rung động công nghiệp thông thường |
 | **Bụi/Dầu** | Cần vỏ bảo vệ IP65 cho camera và đèn |
+
+### 5.5 Web Dashboard Performance
+
+| Yêu cầu | Giá trị |
+|---------|---------|
+| **Video Stream FPS** | ≥ 5 FPS (target: 10 FPS) |
+| **WebSocket Latency** | < 500ms |
+| **Page Load Time** | < 3 giây |
+| **Concurrent Clients** | ≥ 5 browsers đồng thời |
+| **Browser Support** | Chrome, Edge, Firefox (latest) |
+| **Mobile Support** | Responsive design |
+| **CPU Overhead** | < 5% thêm khi có web clients |
+| **Memory Overhead** | < 100MB thêm cho web server |
 
 ---
 
@@ -1026,28 +1067,34 @@ Release 2.0 Features (FINAL):
 | Sprint 5 | Release 1.2 | Recipe & Reporting | 30 | ✅ Done |
 | Sprint 6 | Release 2.0 | PLC/IO Integration | 35 | ✅ Done |
 | Sprint 7 | Release 2.0 | Integration & Testing | 34 | ✅ Done |
-| Sprint 8 | Release 2.0 | Documentation & CI/CD | - | 🔄 In Progress |
-| **Total** | | | **210 SP** |
+| Sprint 8 | Release 2.0 | Documentation & CI/CD | 15 | ✅ Done |
+| Sprint 9 | Release 2.1 | Web Dashboard Backend | 30 | 🔲 Planned |
+| Sprint 10 | Release 2.1 | Web Dashboard Frontend | 25 | 🔲 Planned |
+| **Total** | | | **280 SP** |
 
 ### 11.7 Feature Matrix by Release
 
-| Feature | MVP 1.0 | Rel 1.1 | Rel 1.2 | Rel 2.0 |
-|---------|:-------:|:-------:|:-------:|:-------:|
-| Camera Connection | ✅ | ✅ | ✅ | ✅ |
-| Live Streaming | ✅ | ✅ | ✅ | ✅ |
-| Auto Circle Detection | ✅ | ✅ | ✅ | ✅ |
-| Diameter Display | ✅ | ✅ | ✅ | ✅ |
-| Calibration | ❌ | ✅ | ✅ | ✅ |
-| Tolerance Check | ❌ | ✅ | ✅ | ✅ |
-| Multi-threading | ❌ | ✅ | ✅ | ✅ |
-| Measurement History | ❌ | ✅ | ✅ | ✅ |
-| Recipe Management | ❌ | ❌ | ✅ | ✅ |
-| Statistics | ❌ | ❌ | ✅ | ✅ |
-| CSV Export | ❌ | ❌ | ✅ | ✅ |
-| NG Image Save | ❌ | ❌ | ✅ | ✅ |
-| PLC/IO Interface | ❌ | ❌ | ❌ | ✅ |
-| Hardware Trigger | ❌ | ❌ | ❌ | ✅ |
-| OK/NG Signals | ❌ | ❌ | ❌ | ✅ |
+| Feature | MVP 1.0 | Rel 1.1 | Rel 1.2 | Rel 2.0 | Rel 2.1 |
+|---------|:-------:|:-------:|:-------:|:-------:|:-------:|
+| Camera Connection | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Live Streaming | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Auto Circle Detection | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Diameter Display | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Calibration | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Tolerance Check | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Multi-threading | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Measurement History | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Recipe Management | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Statistics | ❌ | ❌ | ✅ | ✅ | ✅ |
+| CSV Export | ❌ | ❌ | ✅ | ✅ | ✅ |
+| NG Image Save | ❌ | ❌ | ✅ | ✅ | ✅ |
+| PLC/IO Interface | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Hardware Trigger | ❌ | ❌ | ❌ | ✅ | ✅ |
+| OK/NG Signals | ❌ | ❌ | ❌ | ✅ | ✅ |
+| **Web Dashboard** | ❌ | ❌ | ❌ | ❌ | ✅ |
+| **Live Video Stream (Web)** | ❌ | ❌ | ❌ | ❌ | ✅ |
+| **WebSocket Updates** | ❌ | ❌ | ❌ | ❌ | ✅ |
+| **Remote Monitoring** | ❌ | ❌ | ❌ | ❌ | ✅ |
 
 ### 11.8 Risk per Sprint
 
@@ -1220,7 +1267,7 @@ Bảng mã lỗi chuẩn hóa cho hệ thống.
 
 ---
 
-**Document Version:** 2.3
+**Document Version:** 2.4
 **Created Date:** 2025-12-26
 **Last Updated:** 2025-12-27
 **Author:** Development Team
@@ -1240,3 +1287,4 @@ Bảng mã lỗi chuẩn hóa cho hệ thống.
 | 2.1 | 2025-12-26 | Fixed section numbering (Section 4 duplicate), unified FOV range (0.5mm~20mm) |
 | 2.2 | 2025-12-26 | Added Sprint Plan & Release Roadmap (MVP → Release 2.0 with PLC) |
 | 2.3 | 2025-12-27 | Added Acceptance Criteria, Sprint Status, Error Codes |
+| 2.4 | 2025-12-27 | Added US-12 Web Dashboard, F10 Web Dashboard, NFR 5.5 Web Performance, Sprint 9-10 |

@@ -1,6 +1,6 @@
 # API Reference - Circle Measurement System
 
-## Version: 2.0.0
+## Version: 2.1.0
 
 ---
 
@@ -9,6 +9,7 @@
 2. [Service Layer](#2-service-layer)
 3. [Error Codes](#3-error-codes)
 4. [Data Types](#4-data-types)
+5. [Web API (v2.1)](#5-web-api-v21)
 
 ---
 
@@ -651,6 +652,588 @@ DetectionResult = Tuple[List[CircleResult], BinaryImage]
 
 ---
 
+## 5. Web API (v2.1)
+
+### 5.1 Overview
+
+Web Dashboard API cung cấp REST endpoints và WebSocket cho remote monitoring. Server chạy trên port **8080**.
+
+**Base URL:** `http://localhost:8080`
+
+### 5.2 REST API Endpoints
+
+#### 5.2.1 System Status
+
+```http
+GET /api/status
+```
+
+**Response:**
+```json
+{
+  "camera_connected": true,
+  "is_running": true,
+  "current_recipe": "Product_A",
+  "fps": 28.5,
+  "web_clients": 2,
+  "timestamp": "2024-12-27T10:30:00Z"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `camera_connected` | bool | Camera connection status |
+| `is_running` | bool | Detection loop running |
+| `current_recipe` | string | Active recipe name |
+| `fps` | float | Current detection FPS |
+| `web_clients` | int | Connected WebSocket clients |
+| `timestamp` | string | ISO 8601 timestamp |
+
+---
+
+#### 5.2.2 Production Statistics
+
+```http
+GET /api/statistics
+```
+
+**Response:**
+```json
+{
+  "total_inspections": 1234,
+  "ok_count": 1200,
+  "ng_count": 34,
+  "ok_rate": 97.24,
+  "throughput_per_minute": 15.5,
+  "runtime_seconds": 4800,
+  "last_result": "OK",
+  "session_start": "2024-12-27T08:00:00Z"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `total_inspections` | int | Total inspections count |
+| `ok_count` | int | OK count |
+| `ng_count` | int | NG count |
+| `ok_rate` | float | OK percentage (0-100) |
+| `throughput_per_minute` | float | Inspections per minute |
+| `runtime_seconds` | int | Runtime in seconds |
+| `last_result` | string | Last result: "OK", "NG", "NONE" |
+| `session_start` | string | Session start timestamp |
+
+---
+
+#### 5.2.3 Export Statistics
+
+```http
+GET /api/statistics/export
+```
+
+**Response:** CSV file download
+
+```csv
+timestamp,total,ok,ng,ok_rate
+2024-12-27T10:30:00Z,1234,1200,34,97.24
+```
+
+**Headers:**
+```
+Content-Type: text/csv; charset=utf-8
+Content-Disposition: attachment; filename="statistics_20241227_103000.csv"
+```
+
+---
+
+#### 5.2.4 Recipe List
+
+```http
+GET /api/recipes
+```
+
+**Response:**
+```json
+{
+  "recipes": ["Default", "Product_A", "Product_B"],
+  "current": "Product_A",
+  "count": 3
+}
+```
+
+---
+
+#### 5.2.5 Recipe Details
+
+```http
+GET /api/recipes/{name}
+```
+
+**Parameters:**
+| Name | Type | Description |
+|------|------|-------------|
+| `name` | string | Recipe name |
+
+**Response:**
+```json
+{
+  "name": "Product_A",
+  "description": "Standard product configuration",
+  "detection_config": {
+    "pixel_to_mm": 0.00644,
+    "min_diameter_mm": 8.0,
+    "max_diameter_mm": 12.0,
+    "min_circularity": 0.85
+  },
+  "tolerance_config": {
+    "enabled": true,
+    "nominal_mm": 10.0,
+    "tolerance_mm": 0.05
+  },
+  "created_at": "2024-12-01T00:00:00Z",
+  "updated_at": "2024-12-27T10:00:00Z"
+}
+```
+
+**Error Response (404):**
+```json
+{
+  "detail": "Recipe not found: Product_X"
+}
+```
+
+---
+
+#### 5.2.6 IO Status
+
+```http
+GET /api/io/status
+```
+
+**Response:**
+```json
+{
+  "connected": true,
+  "mode": "simulation",
+  "trigger_state": false,
+  "system_enable": true,
+  "system_ready": true,
+  "result_ok": false,
+  "result_ng": false,
+  "busy": false,
+  "error": false,
+  "recipe_index": 0
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `connected` | bool | IO connection status |
+| `mode` | string | "simulation", "ni_daqmx", "advantech" |
+| `trigger_state` | bool | Trigger input state |
+| `system_enable` | bool | System enable input |
+| `system_ready` | bool | Ready output state |
+| `result_ok` | bool | OK output state |
+| `result_ng` | bool | NG output state |
+| `busy` | bool | Busy output state |
+| `error` | bool | Error output state |
+| `recipe_index` | int | Recipe selection (0-3) |
+
+---
+
+#### 5.2.7 Calibration Info
+
+```http
+GET /api/calibration
+```
+
+**Response:**
+```json
+{
+  "is_calibrated": true,
+  "pixel_to_mm": 0.00644,
+  "reference_size_mm": 10.0,
+  "reference_size_px": 1552.8,
+  "calibrated_at": "2024-12-27T08:00:00Z"
+}
+```
+
+---
+
+#### 5.2.8 Measurement History
+
+```http
+GET /api/history
+GET /api/history?limit=50&offset=0
+```
+
+**Query Parameters:**
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `limit` | int | 100 | Maximum items to return |
+| `offset` | int | 0 | Skip first N items |
+
+**Response:**
+```json
+{
+  "items": [
+    {
+      "timestamp": "2024-12-27T10:30:00.123Z",
+      "circles": [
+        {
+          "diameter_mm": 10.02,
+          "status": "OK",
+          "center_x": 320,
+          "center_y": 240
+        }
+      ],
+      "overall_status": "OK"
+    }
+  ],
+  "total": 1234,
+  "limit": 100,
+  "offset": 0
+}
+```
+
+---
+
+### 5.3 Video Stream
+
+#### 5.3.1 MJPEG Stream
+
+```http
+GET /stream/video
+```
+
+**Response:** Multipart MJPEG stream
+
+**Headers:**
+```
+Content-Type: multipart/x-mixed-replace; boundary=frame
+```
+
+**Stream Format:**
+```
+--frame
+Content-Type: image/jpeg
+
+<JPEG binary data>
+--frame
+Content-Type: image/jpeg
+
+<JPEG binary data>
+...
+```
+
+**Usage in HTML:**
+```html
+<img src="http://localhost:8080/stream/video" />
+```
+
+**Stream Parameters:**
+- Target FPS: 10 fps
+- JPEG Quality: 85%
+- Resolution: Same as camera (with overlays)
+
+---
+
+### 5.4 WebSocket API
+
+#### 5.4.1 Connection
+
+```
+WebSocket: ws://localhost:8080/ws/live
+```
+
+**Connection Example (JavaScript):**
+```javascript
+const ws = new WebSocket('ws://localhost:8080/ws/live');
+
+ws.onopen = () => {
+  console.log('Connected to Web Dashboard');
+};
+
+ws.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  console.log('Event:', data.event, data.data);
+};
+
+ws.onerror = (error) => {
+  console.error('WebSocket error:', error);
+};
+
+ws.onclose = () => {
+  console.log('Disconnected');
+};
+```
+
+---
+
+#### 5.4.2 Event Types
+
+##### detection_result
+
+Gửi khi phát hiện vòng tròn mới.
+
+```json
+{
+  "event": "detection_result",
+  "data": {
+    "timestamp": "2024-12-27T10:30:00.123Z",
+    "circles": [
+      {
+        "center_x": 320.5,
+        "center_y": 240.2,
+        "diameter_mm": 10.02,
+        "circularity": 0.98,
+        "status": "OK"
+      }
+    ],
+    "overall_status": "OK",
+    "detection_time_ms": 15.2
+  }
+}
+```
+
+##### statistics_update
+
+Gửi mỗi 5 giây hoặc khi có thay đổi.
+
+```json
+{
+  "event": "statistics_update",
+  "data": {
+    "total_inspections": 1234,
+    "ok_count": 1200,
+    "ng_count": 34,
+    "ok_rate": 97.24,
+    "throughput_per_minute": 15.5
+  }
+}
+```
+
+##### io_status
+
+Gửi mỗi 500ms hoặc khi có thay đổi IO.
+
+```json
+{
+  "event": "io_status",
+  "data": {
+    "trigger_state": false,
+    "system_ready": true,
+    "result_ok": false,
+    "result_ng": false,
+    "recipe_index": 0
+  }
+}
+```
+
+##### system_status
+
+Gửi khi kết nối và mỗi 10 giây.
+
+```json
+{
+  "event": "system_status",
+  "data": {
+    "camera_connected": true,
+    "is_running": true,
+    "current_recipe": "Product_A",
+    "fps": 28.5,
+    "web_clients": 2
+  }
+}
+```
+
+##### recipe_changed
+
+Gửi khi recipe được thay đổi.
+
+```json
+{
+  "event": "recipe_changed",
+  "data": {
+    "name": "Product_B",
+    "nominal_mm": 15.0,
+    "tolerance_mm": 0.1
+  }
+}
+```
+
+---
+
+### 5.5 Pydantic Schemas
+
+```python
+# src/web/schemas.py
+
+from pydantic import BaseModel
+from typing import List, Optional
+from datetime import datetime
+from enum import Enum
+
+class MeasureStatusEnum(str, Enum):
+    OK = "OK"
+    NG = "NG"
+    NONE = "NONE"
+
+class CircleResultSchema(BaseModel):
+    center_x: float
+    center_y: float
+    diameter_mm: float
+    circularity: float
+    status: MeasureStatusEnum
+
+class DetectionResultSchema(BaseModel):
+    timestamp: datetime
+    circles: List[CircleResultSchema]
+    overall_status: MeasureStatusEnum
+    detection_time_ms: float
+
+class SystemStatusSchema(BaseModel):
+    camera_connected: bool
+    is_running: bool
+    current_recipe: Optional[str]
+    fps: float
+    web_clients: int
+    timestamp: datetime
+
+class StatisticsSchema(BaseModel):
+    total_inspections: int
+    ok_count: int
+    ng_count: int
+    ok_rate: float
+    throughput_per_minute: float
+    runtime_seconds: int
+    last_result: MeasureStatusEnum
+    session_start: datetime
+
+class IOStatusSchema(BaseModel):
+    connected: bool
+    mode: str
+    trigger_state: bool
+    system_enable: bool
+    system_ready: bool
+    result_ok: bool
+    result_ng: bool
+    busy: bool
+    error: bool
+    recipe_index: int
+
+class CalibrationSchema(BaseModel):
+    is_calibrated: bool
+    pixel_to_mm: float
+    reference_size_mm: Optional[float]
+    reference_size_px: Optional[float]
+    calibrated_at: Optional[datetime]
+
+class RecipeListSchema(BaseModel):
+    recipes: List[str]
+    current: Optional[str]
+    count: int
+
+class DetectionConfigSchema(BaseModel):
+    pixel_to_mm: float
+    min_diameter_mm: float
+    max_diameter_mm: float
+    min_circularity: float
+
+class ToleranceConfigSchema(BaseModel):
+    enabled: bool
+    nominal_mm: float
+    tolerance_mm: float
+
+class RecipeDetailSchema(BaseModel):
+    name: str
+    description: str
+    detection_config: DetectionConfigSchema
+    tolerance_config: ToleranceConfigSchema
+    created_at: datetime
+    updated_at: datetime
+
+class HistoryItemSchema(BaseModel):
+    timestamp: datetime
+    circles: List[CircleResultSchema]
+    overall_status: MeasureStatusEnum
+
+class HistoryResponseSchema(BaseModel):
+    items: List[HistoryItemSchema]
+    total: int
+    limit: int
+    offset: int
+
+class WebSocketEventSchema(BaseModel):
+    event: str
+    data: dict
+```
+
+---
+
+### 5.6 Error Responses
+
+#### HTTP Status Codes
+
+| Code | Description |
+|------|-------------|
+| 200 | Success |
+| 400 | Bad Request - Invalid parameters |
+| 404 | Not Found - Resource doesn't exist |
+| 500 | Internal Server Error |
+| 503 | Service Unavailable - Camera not connected |
+
+#### Error Response Format
+
+```json
+{
+  "detail": "Error message here",
+  "error_code": "E6XX"
+}
+```
+
+#### Web API Error Codes (E6xx)
+
+| Code | Name | Description |
+|------|------|-------------|
+| E600 | WEB_SERVER_ERROR | Internal server error |
+| E601 | WEB_STREAM_ERROR | Video stream error |
+| E602 | WEB_WEBSOCKET_ERROR | WebSocket connection error |
+| E603 | WEB_CAMERA_NOT_READY | Camera not connected for stream |
+| E604 | WEB_RECIPE_NOT_FOUND | Recipe not found |
+| E605 | WEB_INVALID_PARAMS | Invalid query parameters |
+
+---
+
+### 5.7 CORS Configuration
+
+Web API cho phép CORS từ tất cả origins để hỗ trợ development:
+
+```python
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+```
+
+**Production Recommendation:** Giới hạn `allow_origins` cho các domain cụ thể.
+
+---
+
+### 5.8 Rate Limiting
+
+| Endpoint | Rate Limit |
+|----------|------------|
+| `/api/*` | 100 requests/minute |
+| `/stream/video` | 1 connection/client |
+| `/ws/live` | 5 connections/IP |
+
+---
+
 ## Appendix A: Quick Reference
 
 ### Service Creation
@@ -715,5 +1298,5 @@ io_service.register_trigger_callback(lambda: print("Triggered!"))
 
 ---
 
-*Document Version: 2.0.0*
+*Document Version: 2.1.0*
 *Last Updated: December 2024*

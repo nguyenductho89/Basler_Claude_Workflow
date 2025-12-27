@@ -1,4 +1,4 @@
-# User Manual - Circle Measurement System v2.0.0
+# User Manual - Circle Measurement System v2.1.0
 
 ## Table of Contents
 1. [Overview](#overview)
@@ -13,6 +13,7 @@
 10. [Keyboard Shortcuts](#keyboard-shortcuts)
 11. [FAQ (Frequently Asked Questions)](#faq)
 12. [Troubleshooting Guide](#troubleshooting-guide)
+13. [Web Dashboard (v2.1)](#web-dashboard-v21)
 
 ---
 
@@ -756,5 +757,319 @@ Edit `config/app_config.json`:
 
 ---
 
-*Document Version: 2.0.0*
+## 13. Web Dashboard (v2.1)
+
+### 13.1 Overview
+
+Web Dashboard là tính năng mới trong v2.1 cho phép giám sát từ xa qua trình duyệt web. Supervisor có thể theo dõi sản xuất real-time mà không cần cài đặt phần mềm.
+
+**Key Features:**
+- Live video streaming (10 FPS)
+- Real-time detection results
+- Production statistics
+- IO status monitoring
+- Measurement history
+
+**Access:** Open browser to `http://[PC_IP]:8080`
+
+---
+
+### 13.2 Starting Web Dashboard
+
+Web Dashboard tự động khởi động cùng ứng dụng chính:
+
+1. Start ứng dụng như bình thường
+2. Xác nhận thông báo "Web server started on port 8080" trong log
+3. Truy cập qua trình duyệt web
+
+**Kiểm tra Web Server đang chạy:**
+```
+http://localhost:8080/api/status
+```
+
+Nếu thấy JSON response, Web Server đang hoạt động.
+
+---
+
+### 13.3 Accessing Dashboard
+
+#### 13.3.1 Local Access (cùng máy)
+```
+http://localhost:8080
+```
+
+#### 13.3.2 Remote Access (máy khác trong mạng)
+```
+http://192.168.1.100:8080
+```
+*(Thay 192.168.1.100 bằng IP của máy chạy ứng dụng)*
+
+#### 13.3.3 Firewall Configuration
+
+Nếu không truy cập được từ xa, cấu hình Windows Firewall:
+
+1. Mở Windows Defender Firewall
+2. Advanced settings > Inbound Rules
+3. New Rule > Port
+4. TCP, Specific port: 8080
+5. Allow the connection
+6. Apply to Domain, Private, Public
+7. Name: "Circle Measurement Web Dashboard"
+
+---
+
+### 13.4 Dashboard Layout
+
+```
++----------------------------------------------------------+
+|  Circle Measurement System - Web Dashboard    [Connected] |
++------------------+---------------------------------------+
+| Live Video       | Detection Results                     |
+| (MJPEG 10fps)    | Circle 1: 10.02 mm        [OK]        |
+|                  | Circle 2:  9.94 mm        [NG]        |
+|                  | Circularity: 0.97                     |
++------------------+---------------------------------------+
+| Statistics       | IO Status                             |
+| Total: 1234      | Trigger: OFF    Ready: ON             |
+| OK: 1200 (97.2%) | Result: OK      Enable: ON            |
+| NG: 34           | Recipe: 0                             |
++------------------+---------------------------------------+
+| History                                    [Export CSV]  |
+| 10:30:01  Circle: 10.02mm  OK                            |
+| 10:30:00  Circle:  9.94mm  NG                            |
++----------------------------------------------------------+
+| Recipe: Product_A | Nominal: 10.0mm | Tolerance: +/-0.05 |
++----------------------------------------------------------+
+```
+
+---
+
+### 13.5 Dashboard Panels
+
+#### 13.5.1 Live Video Panel
+
+Hiển thị video stream từ camera với detection overlays:
+- Circles highlighted với màu OK (xanh) hoặc NG (đỏ)
+- Diameter labels trên mỗi circle
+- Detection info (FPS, timestamp)
+
+**Video Controls:**
+- Stream tự động khi camera kết nối
+- Placeholder image khi không có camera
+- Refresh: Click vào video panel
+
+#### 13.5.2 Detection Results Panel
+
+Hiển thị kết quả phát hiện mới nhất:
+- Diameter của từng circle
+- OK/NG status với color coding
+- Circularity score
+- Detection time (ms)
+
+**Color Coding:**
+| Status | Color | Background |
+|--------|-------|------------|
+| OK | Green | Light green |
+| NG | Red | Light red |
+| NONE | Gray | Light gray |
+
+#### 13.5.3 Statistics Panel
+
+Production statistics real-time:
+- Total inspections
+- OK count và percentage
+- NG count
+- Throughput (parts/minute)
+- Runtime
+
+**Export:** Click "Export CSV" để tải statistics file
+
+#### 13.5.4 IO Status Panel
+
+Hiển thị trạng thái IO/PLC:
+- Trigger input state
+- Ready output state
+- OK/NG outputs
+- System enable
+- Recipe selection bits
+
+**Indicators:**
+- Green LED: Signal active
+- Gray LED: Signal inactive
+- Red outline: Error state
+
+#### 13.5.5 History Panel
+
+Measurement history (newest first):
+- Timestamp
+- Diameter measurement
+- OK/NG status
+- Scrollable list (up to 100 items)
+
+#### 13.5.6 Recipe Info Bar
+
+Current recipe information:
+- Recipe name
+- Nominal diameter
+- Tolerance range
+
+---
+
+### 13.6 Multiple Viewers
+
+Web Dashboard hỗ trợ nhiều viewer cùng lúc:
+- Up to 5 concurrent connections
+- All viewers receive same data
+- No performance impact on main application
+
+**Use Cases:**
+- Supervisor office monitor
+- Conference room display
+- Quality engineer workstation
+- Mobile device monitoring
+
+---
+
+### 13.7 Real-time Updates
+
+Dashboard nhận updates qua WebSocket:
+
+| Event | Update Frequency |
+|-------|------------------|
+| Detection result | Immediate |
+| Statistics | Every 5 seconds |
+| IO status | Every 500ms |
+| System status | Every 10 seconds |
+
+**Connection Indicator:**
+- "Connected" (green): WebSocket active
+- "Disconnected" (red): Reconnecting...
+- Auto-reconnect after 3 seconds
+
+---
+
+### 13.8 Limitations
+
+Web Dashboard là **view-only** (chỉ xem):
+
+**Cannot do from Web:**
+- Change detection parameters
+- Control camera (connect/disconnect)
+- Start/stop detection
+- Load/save recipes
+- Trigger measurements
+
+**These require Desktop Application:**
+- All configuration changes
+- Camera operations
+- IO control
+- Calibration
+
+---
+
+### 13.9 Browser Compatibility
+
+| Browser | Version | Status |
+|---------|---------|--------|
+| Chrome | 90+ | Fully supported |
+| Edge | 90+ | Fully supported |
+| Firefox | 88+ | Fully supported |
+| Safari | 14+ | Supported |
+| IE 11 | - | Not supported |
+
+**Requirements:**
+- JavaScript enabled
+- WebSocket support
+- CSS Grid support
+
+---
+
+### 13.10 Network Requirements
+
+| Requirement | Value |
+|-------------|-------|
+| Bandwidth (video) | 2-5 Mbps |
+| Bandwidth (data) | < 100 Kbps |
+| Latency | < 500ms recommended |
+| Port | TCP 8080 |
+
+**For Stable Streaming:**
+- Wired Ethernet preferred
+- WiFi works but may have drops
+- VPN may cause latency
+
+---
+
+### 13.11 Security Considerations
+
+**Current Implementation:**
+- No authentication (anyone on network can view)
+- Read-only access (no control commands)
+- Local network only by default
+
+**Production Recommendations:**
+1. **Network isolation**: Put measurement PC on separate VLAN
+2. **Firewall**: Only allow specific IPs to port 8080
+3. **VPN**: Require VPN for external access
+4. **Authentication**: Future version will add login
+
+---
+
+### 13.12 Troubleshooting Web Dashboard
+
+#### Can't Access Dashboard
+
+| Problem | Solution |
+|---------|----------|
+| "Connection refused" | Check app is running, port 8080 |
+| "Page not found" | Verify URL: http://[ip]:8080 |
+| Can't access from other PC | Check firewall, IP address |
+| Slow loading | Check network bandwidth |
+
+#### Video Stream Issues
+
+| Problem | Solution |
+|---------|----------|
+| No video | Camera not connected in app |
+| Frozen video | Refresh browser (F5) |
+| Low quality | Check camera exposure |
+| Choppy video | Network bandwidth issue |
+
+#### WebSocket Disconnects
+
+| Problem | Solution |
+|---------|----------|
+| Frequent disconnects | Check network stability |
+| "Reconnecting..." | Wait 3-5 seconds |
+| Never reconnects | Refresh page |
+| All clients disconnect | Restart main application |
+
+---
+
+### 13.13 FAQ - Web Dashboard
+
+**Q: Does Web Dashboard affect detection performance?**
+A: No. Video streaming runs at 10 FPS independently of detection (30 FPS). Processing is separate.
+
+**Q: Can I view from mobile phone?**
+A: Yes. Open browser on phone and navigate to `http://[PC_IP]:8080`. Dashboard is responsive.
+
+**Q: Can multiple people view at the same time?**
+A: Yes. Up to 5 concurrent viewers. All see same real-time data.
+
+**Q: How to save screenshot from Web?**
+A: Right-click on video stream, select "Save Image As".
+
+**Q: Can I access from home?**
+A: Only if you have VPN access to company network. Direct internet access is not recommended for security.
+
+**Q: Why is video delayed?**
+A: MJPEG streaming has inherent 1-2 second delay. This is normal for web-based viewing.
+
+**Q: Can I export data from Web Dashboard?**
+A: Yes. Click "Export CSV" button to download statistics.
+
+---
+
+*Document Version: 2.1.0*
 *Last Updated: December 2024*

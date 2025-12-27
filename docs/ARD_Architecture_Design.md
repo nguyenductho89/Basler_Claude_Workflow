@@ -84,6 +84,23 @@ Tài liệu này mô tả chi tiết kiến trúc phần mềm của hệ thốn
 │  │  └─────────────┘  └─────────────┘  └─────────────┘                  │   │
 │  └─────────────────────────────────────────────────────────────────────┘   │
 │                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                         WEB LAYER (v2.1)                            │   │
+│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌────────────┐  │   │
+│  │  │  FastAPI    │  │  WebSocket  │  │  MJPEG      │  │  Static    │  │   │
+│  │  │  REST API   │  │  Handler    │  │  Stream     │  │  Files     │  │   │
+│  │  └─────────────┘  └─────────────┘  └─────────────┘  └────────────┘  │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                    │                                        │
+│                                    ▼                                        │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                       WEB CLIENTS (Browser)                         │   │
+│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                  │   │
+│  │  │  Desktop    │  │  Tablet     │  │  Mobile     │                  │   │
+│  │  │  Browser    │  │  Browser    │  │  Browser    │                  │   │
+│  │  └─────────────┘  └─────────────┘  └─────────────┘                  │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -95,6 +112,8 @@ Tài liệu này mô tả chi tiết kiến trúc phần mềm của hệ thốn
 | **Application** | Business logic orchestration | Services, Controllers |
 | **Domain** | Core business entities & rules | Entities, Value Objects |
 | **Infrastructure** | External system communication | Camera driver, File I/O |
+| **Web** | Remote monitoring via HTTP | FastAPI, WebSocket, MJPEG |
+| **Core** | Shared state & event bus | AppCore, Events |
 
 ---
 
@@ -1339,7 +1358,243 @@ Network Configuration:
 
 ---
 
-**Document Version:** 1.2
+## 16. Web Dashboard Architecture (v2.1)
+
+### 16.1 Hybrid Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    HYBRID DESKTOP + WEB ARCHITECTURE                          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│   ┌───────────────────────────┐       ┌───────────────────────────┐        │
+│   │    Tkinter Desktop UI     │       │     Web Dashboard         │        │
+│   │    (Local Operator)       │       │     (Remote Supervisor)   │        │
+│   │    - Full Control         │       │     - View Only           │        │
+│   │    - 30 FPS               │       │     - 10 FPS              │        │
+│   └─────────────┬─────────────┘       └─────────────┬─────────────┘        │
+│                 │                                   │                       │
+│                 │ Direct Access                     │ HTTP/WebSocket        │
+│                 │                                   │ Port 8080             │
+│                 ▼                                   ▼                       │
+│   ┌─────────────────────────────────────────────────────────────────────┐  │
+│   │                         AppCore (Singleton)                          │  │
+│   │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────┐  │  │
+│   │  │  Shared State   │  │   Event Bus     │  │  Service Container  │  │  │
+│   │  │  - Statistics   │  │  - subscribe()  │  │  - Camera           │  │  │
+│   │  │  - Latest Frame │  │  - publish()    │  │  - Detector         │  │  │
+│   │  │  - IO Status    │  │                 │  │  - Recipe           │  │  │
+│   │  └─────────────────┘  └─────────────────┘  └─────────────────────┘  │  │
+│   └─────────────────────────────────────────────────────────────────────┘  │
+│                                   │                                        │
+│                                   ▼                                        │
+│   ┌─────────────────────────────────────────────────────────────────────┐  │
+│   │                         Services Layer                               │  │
+│   │  Camera | Detector | Visualizer | IO | Recipe | Calibration         │  │
+│   └─────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 16.2 AppCore Component
+
+```
+AppCore (Singleton)
+├── Shared State
+│   ├── current_frame: np.ndarray (thread-safe)
+│   ├── display_frame: np.ndarray (with overlays)
+│   ├── latest_result: ProcessResult
+│   ├── statistics: StatisticsData
+│   ├── io_status: IOStatus
+│   └── current_recipe: str
+│
+├── Event Bus
+│   ├── subscribe(event_type, callback)
+│   ├── publish(event_type, data)
+│   └── Event Types:
+│       ├── DETECTION_RESULT
+│       ├── STATISTICS_UPDATE
+│       ├── IO_STATUS_CHANGE
+│       ├── RECIPE_CHANGED
+│       └── CAMERA_STATUS_CHANGE
+│
+└── Service Container
+    ├── camera: BaslerGigECamera
+    ├── detector: CircleDetector
+    ├── visualizer: CircleVisualizer
+    ├── calibration: CalibrationService
+    ├── recipe_service: RecipeService
+    ├── io_service: IOService
+    ├── image_saver: ImageSaver
+    └── thread_manager: ThreadManager
+```
+
+### 16.3 Web Server Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         FastAPI Web Server                                    │
+│                         (Background Thread)                                   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │                         HTTP Routes                                    │  │
+│  │                                                                        │  │
+│  │  GET /                         → Static HTML Dashboard                 │  │
+│  │  GET /api/status               → System status JSON                    │  │
+│  │  GET /api/statistics           → Production statistics JSON            │  │
+│  │  GET /api/statistics/export    → CSV download                          │  │
+│  │  GET /api/recipes              → Recipe list JSON                      │  │
+│  │  GET /api/recipes/{name}       → Recipe details JSON                   │  │
+│  │  GET /api/io/status            → IO status JSON                        │  │
+│  │  GET /api/calibration          → Calibration info JSON                 │  │
+│  │  GET /api/history              → Measurement history JSON              │  │
+│  │  GET /stream/video             → MJPEG video stream                    │  │
+│  │                                                                        │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │                       WebSocket Endpoint                               │  │
+│  │                                                                        │  │
+│  │  WS /ws/live                                                           │  │
+│  │    ├── Server → Client Messages:                                       │  │
+│  │    │   ├── detection_result (on each frame)                            │  │
+│  │    │   ├── statistics_update (every 5s)                                │  │
+│  │    │   ├── io_status (every 500ms or on change)                        │  │
+│  │    │   └── system_status (on change)                                   │  │
+│  │    │                                                                   │  │
+│  │    └── Client → Server Messages:                                       │  │
+│  │        ├── subscribe: {"channels": ["detection", "io"]}                │  │
+│  │        └── ping (keepalive)                                            │  │
+│  │                                                                        │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │                      Connection Manager                                │  │
+│  │                                                                        │  │
+│  │  - Tracks active WebSocket connections                                 │  │
+│  │  - Manages subscriptions per client                                    │  │
+│  │  - Broadcasts events to subscribed clients                             │  │
+│  │  - Handles disconnection cleanup                                       │  │
+│  │                                                                        │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 16.4 WebSocket Sequence Diagram
+
+```mermaid
+sequenceDiagram
+    participant B as Browser
+    participant WS as WebSocket Server
+    participant AC as AppCore
+    participant TM as ThreadManager
+
+    B->>WS: Connect /ws/live
+    WS->>WS: Accept Connection
+    WS->>B: {"type": "connected"}
+
+    B->>WS: {"type": "subscribe", "channels": ["detection", "statistics"]}
+    WS->>WS: Register Subscription
+    WS->>B: {"type": "subscribed"}
+
+    loop Detection Loop
+        TM->>AC: publish("detection_result", result)
+        AC->>WS: Event Callback
+        WS->>B: {"type": "detection_result", "data": {...}}
+    end
+
+    loop Statistics Update (every 5s)
+        AC->>WS: Statistics Event
+        WS->>B: {"type": "statistics_update", "data": {...}}
+    end
+
+    B->>WS: Close Connection
+    WS->>WS: Remove from active connections
+```
+
+### 16.5 MJPEG Stream Flow
+
+```mermaid
+sequenceDiagram
+    participant B as Browser
+    participant S as Stream Endpoint
+    participant AC as AppCore
+    participant FB as Frame Buffer
+
+    B->>S: GET /stream/video
+    S->>S: Start Generator
+
+    loop Stream Loop (10 FPS)
+        S->>AC: get_latest_display_frame()
+        AC->>FB: Lock & Copy Frame
+        FB-->>AC: frame.copy()
+        AC-->>S: Display Frame
+        S->>S: Encode JPEG (quality=70)
+        S->>B: --frame\r\n Content-Type: image/jpeg\r\n\r\n [JPEG bytes]
+        S->>S: Sleep (100ms - elapsed)
+    end
+
+    B->>S: Close Connection
+    S->>S: Stop Generator
+```
+
+### 16.6 Performance Impact
+
+| Metric | Without Web | With Web (idle) | With Web (1 client) | With Web (5 clients) |
+|--------|-------------|-----------------|---------------------|----------------------|
+| CPU Usage | 15-25% | 16-26% | 18-30% | 22-35% |
+| RAM Usage | 200MB | 250MB | 280MB | 350MB |
+| Detection FPS | 30 | 30 | 30 | 30 |
+| Web Stream FPS | N/A | N/A | 10 | 10 |
+
+**Key Design Decisions:**
+- Web server runs in separate daemon thread
+- Frame copy is thread-safe with lock
+- WebSocket broadcast is async
+- MJPEG stream is rate-limited to 10 FPS
+- Detection pipeline is unaffected by web clients
+
+### 16.7 File Structure
+
+```
+src/
+├── core/                    # NEW: Shared Core
+│   ├── __init__.py
+│   ├── app_core.py          # Singleton, Event Bus
+│   ├── events.py            # Event type constants
+│   └── state.py             # Shared state classes
+│
+├── web/                     # NEW: Web Layer
+│   ├── __init__.py
+│   ├── server.py            # FastAPI app, background runner
+│   ├── schemas.py           # Pydantic models
+│   ├── dependencies.py      # DI for AppCore
+│   └── routes/
+│       ├── __init__.py
+│       ├── api.py           # REST endpoints
+│       ├── websocket.py     # WebSocket handler
+│       └── stream.py        # MJPEG stream
+│
+├── main.py                  # MODIFIED: Create AppCore, start web server
+├── ui/
+│   └── main_window.py       # MODIFIED: Use AppCore, publish events
+└── ...
+
+web-dashboard/               # NEW: Frontend
+├── index.html
+├── css/
+│   └── styles.css
+└── js/
+    ├── app.js
+    ├── websocket.js
+    └── api.js
+```
+
+---
+
+**Document Version:** 1.3
 **Created Date:** 2025-12-26
 **Last Updated:** 2025-12-27
 **Author:** Development Team
@@ -1354,3 +1609,4 @@ Network Configuration:
 | 1.0 | 2025-12-26 | Initial architecture design |
 | 1.1 | 2025-12-26 | Added PLC/IO Interface (6.4), Threading Model (9.3) |
 | 1.2 | 2025-12-27 | Added Sequence Diagrams, State Machines, Deployment Diagram, Security |
+| 1.3 | 2025-12-27 | Added Web Dashboard Architecture (Section 16), AppCore, WebSocket design |

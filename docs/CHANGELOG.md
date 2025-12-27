@@ -10,8 +10,79 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Planned
 - Multi-camera support
 - Database integration for statistics
-- Web-based monitoring dashboard
 - Auto-learning detection parameters
+- Web Dashboard authentication/login
+- WebSocket control commands
+
+---
+
+## [2.1.0] - 2024-12-27
+
+### Added
+- **Web Dashboard for Remote Monitoring**
+  - Real-time video streaming via MJPEG (10 FPS)
+  - Live detection results via WebSocket
+  - Production statistics display
+  - IO status monitoring
+  - Measurement history table
+  - CSV export from browser
+  - Support for 5+ concurrent viewers
+  - Responsive design for mobile devices
+
+- **AppCore Shared State Container**
+  - Singleton pattern for shared services
+  - Event bus for decoupled communication
+  - Thread-safe frame buffer access
+  - Centralized state management
+
+- **REST API Endpoints**
+  - `GET /api/status` - System status
+  - `GET /api/statistics` - Production stats
+  - `GET /api/statistics/export` - CSV export
+  - `GET /api/recipes` - Recipe list
+  - `GET /api/recipes/{name}` - Recipe details
+  - `GET /api/io/status` - IO status
+  - `GET /api/calibration` - Calibration info
+  - `GET /api/history` - Measurement history
+  - `GET /stream/video` - MJPEG stream
+
+- **WebSocket Real-time Events**
+  - `detection_result` - Circle detection results
+  - `statistics_update` - Statistics updates (5s)
+  - `io_status` - IO status changes (500ms)
+  - `system_status` - System status (10s)
+  - `recipe_changed` - Recipe change notifications
+
+- **Web Frontend Dashboard**
+  - Pure HTML/JavaScript (no build required)
+  - CSS Grid responsive layout
+  - Auto-reconnecting WebSocket client
+  - Real-time status indicators
+
+- **New Dependencies**
+  - FastAPI for REST API
+  - Uvicorn ASGI server
+  - WebSockets library
+  - Python-multipart
+
+### Changed
+- Main application now creates AppCore on startup
+- MainWindow accepts AppCore parameter
+- Web server runs in background thread (port 8080)
+- Detection results published to event bus
+
+### Technical
+- Hybrid architecture: Desktop (Tkinter) + Web (FastAPI)
+- Detection FPS unaffected by web clients
+- Web stream independent at 10 FPS
+- Thread-safe design for concurrent access
+
+### Documentation
+- Updated PRD with Web Dashboard requirements (US-12)
+- Updated ARD with Web Layer architecture (Section 16)
+- Updated TST with Web API test cases (Section 11)
+- Updated API Reference with Web endpoints (Section 5)
+- Updated User Manual with Web Dashboard guide (Section 13)
 
 ---
 
@@ -169,6 +240,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| 2.1.0 | 2024-12-27 | Web Dashboard, REST API, WebSocket |
 | 2.0.0 | 2024-12-27 | IO/PLC, Statistics, CI/CD |
 | 1.5.0 | 2024-12-26 | Recipe management |
 | 1.4.0 | 2024-12-26 | Calibration system |
@@ -180,6 +252,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ---
 
 ## Upgrade Notes
+
+### Upgrading to 2.1.0
+
+1. **New Dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
+   New packages: fastapi, uvicorn, websockets, python-multipart
+
+2. **Configuration Changes**
+   - No configuration changes required
+   - Web server auto-starts on port 8080
+
+3. **Firewall**
+   - Allow TCP port 8080 for remote access
+   - See User Manual Section 13.3.3
+
+4. **Breaking Changes**
+   - None (backward compatible)
 
 ### Upgrading to 2.0.0
 
@@ -207,5 +298,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/nguyenductho89/Basler_Claude_Workflow/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/nguyenductho89/Basler_Claude_Workflow/compare/v2.1.0...HEAD
+[2.1.0]: https://github.com/nguyenductho89/Basler_Claude_Workflow/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/nguyenductho89/Basler_Claude_Workflow/releases/tag/v2.0.0
