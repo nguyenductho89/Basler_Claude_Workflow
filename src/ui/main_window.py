@@ -595,12 +595,12 @@ class MainWindow:
             self._update_status("NG image saving disabled")
 
     def _on_io_trigger(self) -> None:
-        """Handle IO trigger signal"""
-        logger.info("IO trigger received")
-        # If camera is connected and running, the next frame will be processed
-        # This is useful for hardware trigger mode
+        """Handle IO/Manual trigger signal (TD-001)"""
+        logger.info("Trigger received")
+        # Execute software trigger on camera if connected
         if self._camera.is_connected and self._is_running:
-            self._update_status("Trigger received - processing...")
+            self._camera.execute_software_trigger()
+            self._update_status("Trigger - capturing frame...")
 
     def _send_io_result(self, ok: bool) -> None:
         """Send inspection result to PLC"""

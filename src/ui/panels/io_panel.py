@@ -95,13 +95,36 @@ class IOPanel(ttk.LabelFrame):
         self._create_io_row(outputs_frame, "DO-3", "System Error", "error", color="#ff0000")
         self._create_io_row(outputs_frame, "DO-4", "Busy", "busy", color="#ffff00")
 
+        # Manual Trigger section (always visible - TD-001)
+        trigger_frame = ttk.LabelFrame(self, text="Manual Trigger", padding=5)
+        trigger_frame.pack(fill=tk.X, pady=(0, 10))
+
+        # Large trigger button with styling
+        style = ttk.Style()
+        style.configure("Trigger.TButton", font=("Arial", 12, "bold"))
+
+        self.manual_trigger_btn = ttk.Button(
+            trigger_frame,
+            text="TRIGGER",
+            style="Trigger.TButton",
+            command=self._on_manual_trigger,
+        )
+        self.manual_trigger_btn.pack(fill=tk.X, pady=5, ipady=10)
+
+        ttk.Label(
+            trigger_frame,
+            text="Click to capture (temp. solution until PLC integration)",
+            font=("Arial", 8),
+            foreground="gray",
+        ).pack(anchor=tk.CENTER)
+
         # Simulation controls (only in simulation mode)
         if self._io_service.config.mode == IOMode.SIMULATION:
-            sim_frame = ttk.LabelFrame(self, text="Simulation Controls", padding=5)
+            sim_frame = ttk.LabelFrame(self, text="IO Simulation", padding=5)
             sim_frame.pack(fill=tk.X)
 
-            # Trigger button
-            self.trigger_btn = ttk.Button(sim_frame, text="Simulate Trigger", command=self._on_sim_trigger)
+            # Trigger button (simulates IO trigger signal)
+            self.trigger_btn = ttk.Button(sim_frame, text="Simulate IO Trigger", command=self._on_sim_trigger)
             self.trigger_btn.pack(fill=tk.X, pady=2)
 
             # Enable toggle
@@ -182,6 +205,12 @@ class IOPanel(ttk.LabelFrame):
         else:
             if self._io_service.start():
                 self.start_btn.config(text="Stop IO")
+
+    def _on_manual_trigger(self) -> None:
+        """Handle manual trigger button (TD-001)"""
+        logger.info("Manual trigger button pressed")
+        if self._on_trigger:
+            self._on_trigger()
 
     def _on_sim_trigger(self) -> None:
         """Handle simulate trigger button"""

@@ -19,8 +19,9 @@ logger = logging.getLogger(__name__)
 class TriggerMode:
     """Camera trigger mode constants"""
 
-    SOFTWARE = "software"
-    HARDWARE = "hardware"
+    FREERUN = "freerun"  # Continuous acquisition, no trigger needed
+    SOFTWARE = "software"  # Software trigger, need to call execute_software_trigger()
+    HARDWARE = "hardware"  # Hardware trigger from external signal (Line1)
 
 
 class BaslerGigECamera:
@@ -151,11 +152,11 @@ class BaslerGigECamera:
             elif hasattr(self._camera, "ExposureTime"):
                 self._camera.ExposureTime.SetValue(exposure_us)
 
-            # Set software trigger mode by default
+            # Set free-run mode by default (continuous acquisition)
             self._camera.TriggerMode.SetValue("Off")
-            self._trigger_mode = TriggerMode.SOFTWARE
+            self._trigger_mode = TriggerMode.FREERUN
 
-            logger.info(f"Camera configured: exposure={exposure_us}us, trigger=software")
+            logger.info(f"Camera configured: exposure={exposure_us}us, trigger=freerun")
 
         except Exception as e:
             logger.warning(f"Error configuring camera: {e}")
@@ -165,7 +166,7 @@ class BaslerGigECamera:
         Set camera trigger mode
 
         Args:
-            mode: TriggerMode.SOFTWARE or TriggerMode.HARDWARE
+            mode: TriggerMode.FREERUN, TriggerMode.SOFTWARE, or TriggerMode.HARDWARE
 
         Returns:
             True if successful
@@ -182,11 +183,17 @@ class BaslerGigECamera:
                 self._camera.TriggerActivation.SetValue("RisingEdge")
                 self._trigger_mode = TriggerMode.HARDWARE
                 logger.info("Hardware trigger mode enabled (Line1, Rising Edge)")
-            else:
-                # Configure for continuous/software mode
-                self._camera.TriggerMode.SetValue("Off")
+            elif mode == TriggerMode.SOFTWARE:
+                # Configure for software trigger
+                self._camera.TriggerMode.SetValue("On")
+                self._camera.TriggerSource.SetValue("Software")
                 self._trigger_mode = TriggerMode.SOFTWARE
-                logger.info("Software trigger mode enabled (continuous)")
+                logger.info("Software trigger mode enabled")
+            else:
+                # Configure for free-run mode (continuous)
+                self._camera.TriggerMode.SetValue("Off")
+                self._trigger_mode = TriggerMode.FREERUN
+                logger.info("Free-run mode enabled (continuous)")
 
             return True
 
@@ -196,7 +203,7 @@ class BaslerGigECamera:
 
     def execute_software_trigger(self) -> bool:
         """
-        Execute a software trigger (for testing in hardware trigger mode)
+        Execute a software trigger to capture one frame
 
         Returns:
             True if successful
@@ -205,13 +212,20 @@ class BaslerGigECamera:
             return False
 
         try:
-            if self._trigger_mode == TriggerMode.HARDWARE:
+            if self._trigger_mode == TriggerMode.SOFTWARE:
+                # Execute software trigger in software trigger mode
+                self._camera.TriggerSoftware.Execute()
+                logger.debug("Software trigger executed")
+            elif self._trigger_mode == TriggerMode.HARDWARE:
                 # Temporarily switch to software trigger for single shot
                 self._camera.TriggerSource.SetValue("Software")
                 self._camera.TriggerSoftware.Execute()
                 # Switch back to hardware trigger
                 self._camera.TriggerSource.SetValue("Line1")
-            logger.debug("Software trigger executed")
+                logger.debug("Software trigger executed (override hardware)")
+            else:
+                # Free-run mode - no trigger needed
+                logger.debug("Camera in free-run mode, trigger ignored")
             return True
         except Exception as e:
             logger.error(f"Failed to execute software trigger: {e}")
