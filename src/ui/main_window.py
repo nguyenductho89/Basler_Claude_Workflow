@@ -138,23 +138,40 @@ class MainWindow:
         self.video_canvas = VideoCanvas(left_frame, VIDEO_WIDTH, VIDEO_HEIGHT)
         self.video_canvas.pack(fill=tk.BOTH, expand=True)
 
-        # Right panel - Controls (scrollable)
-        right_outer = ttk.Frame(main_frame, width=320)
+        # Right panel - Controls (scrollable, responsive - BUG-002 fix)
+        right_outer = ttk.Frame(main_frame)
         right_outer.pack(side=tk.RIGHT, fill=tk.Y, padx=(10, 0))
-        right_outer.pack_propagate(False)
 
-        # Create canvas for scrolling
-        canvas = tk.Canvas(right_outer, width=300, highlightthickness=0)
-        scrollbar = ttk.Scrollbar(right_outer, orient=tk.VERTICAL, command=canvas.yview)
-        scrollable_frame = ttk.Frame(canvas)
+        # Create canvas for scrolling with responsive width
+        self._right_canvas = tk.Canvas(right_outer, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(right_outer, orient=tk.VERTICAL, command=self._right_canvas.yview)
+        scrollable_frame = ttk.Frame(self._right_canvas, padding=(5, 0, 15, 0))
 
-        scrollable_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        # Configure scroll region when content changes
+        def on_frame_configure(event):
+            self._right_canvas.configure(scrollregion=self._right_canvas.bbox("all"))
+            # Update canvas width to match content
+            self._right_canvas.configure(width=event.width)
 
-        canvas.create_window((0, 0), window=scrollable_frame, anchor=tk.NW)
-        canvas.configure(yscrollcommand=scrollbar.set)
+        scrollable_frame.bind("<Configure>", on_frame_configure)
 
-        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        # Create window with proper anchor
+        self._right_canvas.create_window((0, 0), window=scrollable_frame, anchor=tk.NW, tags="content")
+        self._right_canvas.configure(yscrollcommand=scrollbar.set)
+
+        # Pack scrollbar first so it doesn't get hidden
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self._right_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        # Enable mouse wheel scrolling
+        def on_mousewheel(event):
+            self._right_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+        self._right_canvas.bind_all("<MouseWheel>", on_mousewheel)
+
+        # Set minimum width for right panel
+        self._root.update_idletasks()
+        right_outer.configure(width=340)
 
         right_frame = scrollable_frame
 
