@@ -1,7 +1,11 @@
 # Circle Measurement System
 
-![Build Status](https://github.com/nguyenductho89/Basler_Claude_Workflow/actions/workflows/test.yml/badge.svg)
+[![Release](https://img.shields.io/github/v/release/nguyenductho89/Basler_Claude_Workflow?include_prereleases&style=flat-square)](https://github.com/nguyenductho89/Basler_Claude_Workflow/releases/latest)
+[![Build Status](https://github.com/nguyenductho89/Basler_Claude_Workflow/actions/workflows/test.yml/badge.svg)](https://github.com/nguyenductho89/Basler_Claude_Workflow/actions/workflows/test.yml)
 [![codecov](https://codecov.io/gh/nguyenductho89/Basler_Claude_Workflow/graph/badge.svg)](https://codecov.io/gh/nguyenductho89/Basler_Claude_Workflow)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
+[![License](https://img.shields.io/badge/license-Proprietary-red?style=flat-square)](LICENSE)
+[![Docs](https://img.shields.io/badge/docs-available-brightgreen?style=flat-square)](docs/)
 
 Industrial circle measurement system using Basler cameras with real-time detection and PLC integration.
 
