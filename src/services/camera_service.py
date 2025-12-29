@@ -61,8 +61,13 @@ class BaslerGigECamera:
         return self._trigger_mode
 
     @staticmethod
-    def list_devices() -> List[Dict[str, Any]]:
-        """List all available Basler GigE cameras"""
+    def list_devices(gige_only: bool = True) -> List[Dict[str, Any]]:
+        """
+        List all available Basler cameras
+
+        Args:
+            gige_only: If True, only return GigE cameras (default: True)
+        """
         if not PYLON_AVAILABLE:
             logger.warning("pypylon not available")
             return []
@@ -70,23 +75,45 @@ class BaslerGigECamera:
         devices = []
         try:
             tlFactory = pylon.TlFactory.GetInstance()
-            device_infos = tlFactory.EnumerateDevices()
+
+            if gige_only:
+                # Create filter for GigE devices only
+                device_filter = [pylon.DeviceInfo()]
+                device_filter[0].SetDeviceClass("BaslerGigE")
+                logger.info("Scanning for GigE cameras...")
+                device_infos = tlFactory.EnumerateDevices(device_filter)
+            else:
+                logger.info("Scanning for all cameras...")
+                device_infos = tlFactory.EnumerateDevices()
+
+            logger.info(f"EnumerateDevices returned {len(device_infos)} device(s)")
 
             for i, dev_info in enumerate(device_infos):
+                device_class = dev_info.GetDeviceClass()
+                ip_address = "N/A"
+
+                # Get IP address for GigE devices
+                if device_class == "BaslerGigE":
+                    try:
+                        ip_address = dev_info.GetIpAddress()
+                    except Exception:
+                        ip_address = "N/A"
+
                 devices.append(
                     {
                         "index": i,
                         "model": dev_info.GetModelName(),
                         "serial": dev_info.GetSerialNumber(),
-                        "ip": dev_info.GetIpAddress() if hasattr(dev_info, "GetIpAddress") else "N/A",
+                        "ip": ip_address,
                         "name": dev_info.GetFriendlyName(),
                         "vendor": dev_info.GetVendorName(),
+                        "device_class": device_class,
                     }
                 )
-                logger.info(f"Found camera: {dev_info.GetFriendlyName()}")
+                logger.info(f"Found camera: {dev_info.GetFriendlyName()} ({device_class}) IP: {ip_address}")
 
         except Exception as e:
-            logger.error(f"Error enumerating devices: {e}")
+            logger.error(f"Error enumerating devices: {e}", exc_info=True)
 
         return devices
 
@@ -111,20 +138,32 @@ class BaslerGigECamera:
 
         try:
             tlFactory = pylon.TlFactory.GetInstance()
-            devices = tlFactory.EnumerateDevices()
+
+            # Use GigE filter to match list_devices behavior
+            device_filter = [pylon.DeviceInfo()]
+            device_filter[0].SetDeviceClass("BaslerGigE")
+            devices = tlFactory.EnumerateDevices(device_filter)
 
             if device_index >= len(devices):
-                logger.error(f"Device index {device_index} out of range (found {len(devices)} devices)")
+                logger.error(f"Device index {device_index} out of range (found {len(devices)} GigE devices)")
                 return False
 
+            logger.info(f"Connecting to device {device_index}: {devices[device_index].GetFriendlyName()}")
             self._camera = pylon.InstantCamera(tlFactory.CreateDevice(devices[device_index]))
             self._camera.Open()
 
             # Store device info
+            ip_address = "N/A"
+            try:
+                ip_address = devices[device_index].GetIpAddress()
+            except Exception:
+                pass
+
             self._device_info = {
                 "model": devices[device_index].GetModelName(),
                 "serial": devices[device_index].GetSerialNumber(),
                 "name": devices[device_index].GetFriendlyName(),
+                "ip": ip_address,
             }
 
             # Configure camera
