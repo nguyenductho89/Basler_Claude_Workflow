@@ -23,4 +23,4 @@ pydantic>=2.0.0
 # Development
 pytest>=7.0.0
 pytest-cov>=3.0.0
-httpx>=0.24.0  # For testing FastAPI
+httpx>=0.28.1  # For testing FastAPI
