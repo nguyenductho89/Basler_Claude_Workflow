@@ -64,3 +64,7 @@ class CameraConfig:
     default_exposure_us: float = 50.0
     trigger_mode: str = "software"
     pixel_format: str = "BGR8"
+    # Image quality parameters
+    gain_db: float = 0.0  # Lower = less noise = sharper
+    gamma: float = 1.0  # 1.0 = no correction
+    sharpness: float = 0.0  # Higher = sharper edges (if supported)

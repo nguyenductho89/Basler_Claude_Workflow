@@ -184,25 +184,83 @@ class MainWindow:
         )
         self.camera_panel.pack(fill=tk.X, pady=(0, 10))
 
-        # Exposure control
-        exposure_frame = ttk.LabelFrame(right_frame, text="Exposure Control", padding=10)
-        exposure_frame.pack(fill=tk.X, pady=(0, 10))
+        # Camera Settings (Exposure, Gain, Gamma, Sharpness)
+        camera_settings_frame = ttk.LabelFrame(right_frame, text="Camera Settings", padding=10)
+        camera_settings_frame.pack(fill=tk.X, pady=(0, 10))
 
-        ttk.Label(exposure_frame, text="Exposure (us):").pack(anchor=tk.W)
+        # Exposure control
+        ttk.Label(camera_settings_frame, text="Exposure (us):").pack(anchor=tk.W)
 
         self.exposure_var = tk.DoubleVar(value=DEFAULT_EXPOSURE_US)
         self.exposure_scale = ttk.Scale(
-            exposure_frame,
+            camera_settings_frame,
             from_=10,
             to=10000,
             variable=self.exposure_var,
             orient=tk.HORIZONTAL,
             command=self._on_exposure_change,
         )
-        self.exposure_scale.pack(fill=tk.X, pady=5)
+        self.exposure_scale.pack(fill=tk.X, pady=(0, 2))
 
-        self.exposure_label = ttk.Label(exposure_frame, text=f"{DEFAULT_EXPOSURE_US:.1f} us")
+        self.exposure_label = ttk.Label(camera_settings_frame, text=f"{DEFAULT_EXPOSURE_US:.1f} us")
         self.exposure_label.pack(anchor=tk.W)
+
+        ttk.Separator(camera_settings_frame, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=8)
+
+        # Gain control
+        ttk.Label(camera_settings_frame, text="Gain (dB):").pack(anchor=tk.W)
+
+        self.gain_var = tk.DoubleVar(value=0.0)
+        self.gain_scale = ttk.Scale(
+            camera_settings_frame,
+            from_=0,
+            to=24,
+            variable=self.gain_var,
+            orient=tk.HORIZONTAL,
+            command=self._on_gain_change,
+        )
+        self.gain_scale.pack(fill=tk.X, pady=(0, 2))
+
+        self.gain_label = ttk.Label(camera_settings_frame, text="0.0 dB (lower = sharper)")
+        self.gain_label.pack(anchor=tk.W)
+
+        ttk.Separator(camera_settings_frame, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=8)
+
+        # Gamma control
+        ttk.Label(camera_settings_frame, text="Gamma:").pack(anchor=tk.W)
+
+        self.gamma_var = tk.DoubleVar(value=1.0)
+        self.gamma_scale = ttk.Scale(
+            camera_settings_frame,
+            from_=0.25,
+            to=2.0,
+            variable=self.gamma_var,
+            orient=tk.HORIZONTAL,
+            command=self._on_gamma_change,
+        )
+        self.gamma_scale.pack(fill=tk.X, pady=(0, 2))
+
+        self.gamma_label = ttk.Label(camera_settings_frame, text="1.00 (1.0 = no correction)")
+        self.gamma_label.pack(anchor=tk.W)
+
+        ttk.Separator(camera_settings_frame, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=8)
+
+        # Sharpness control
+        ttk.Label(camera_settings_frame, text="Sharpness:").pack(anchor=tk.W)
+
+        self.sharpness_var = tk.DoubleVar(value=0.0)
+        self.sharpness_scale = ttk.Scale(
+            camera_settings_frame,
+            from_=0,
+            to=4.0,
+            variable=self.sharpness_var,
+            orient=tk.HORIZONTAL,
+            command=self._on_sharpness_change,
+        )
+        self.sharpness_scale.pack(fill=tk.X, pady=(0, 2))
+
+        self.sharpness_label = ttk.Label(camera_settings_frame, text="0.0 (higher = sharper edges)")
+        self.sharpness_label.pack(anchor=tk.W)
 
         # Calibration info
         calib_frame = ttk.LabelFrame(right_frame, text="Calibration", padding=10)
@@ -313,11 +371,50 @@ class MainWindow:
 
         if success:
             self.camera_panel.set_connected(True, self._camera.device_info)
+
+            # Update slider ranges and values from camera
+            self._update_camera_settings_ui()
+
             self._start_processing()
             self._update_status("Camera connected - Multi-threaded processing active")
         else:
             messagebox.showerror("Error", "Failed to connect to camera")
             self._update_status("Connection failed")
+
+    def _update_camera_settings_ui(self) -> None:
+        """Update camera settings UI with current camera values and ranges"""
+        if not self._camera.is_connected:
+            return
+
+        try:
+            # Update gain range and value
+            gain_min, gain_max = self._camera.get_gain_range()
+            self.gain_scale.config(from_=gain_min, to=gain_max)
+            current_gain = self._camera.get_gain()
+            self.gain_var.set(current_gain)
+            self.gain_label.config(text=f"{current_gain:.1f} dB (lower = sharper)")
+
+            # Update gamma range and value
+            gamma_min, gamma_max = self._camera.get_gamma_range()
+            self.gamma_scale.config(from_=gamma_min, to=gamma_max)
+            current_gamma = self._camera.get_gamma()
+            self.gamma_var.set(current_gamma)
+            self.gamma_label.config(text=f"{current_gamma:.2f} (1.0 = no correction)")
+
+            # Update sharpness range and value
+            if self._camera.has_sharpness_support():
+                sharp_min, sharp_max = self._camera.get_sharpness_range()
+                self.sharpness_scale.config(from_=sharp_min, to=sharp_max, state=tk.NORMAL)
+                current_sharpness = self._camera.get_sharpness()
+                self.sharpness_var.set(current_sharpness)
+                self.sharpness_label.config(text=f"{current_sharpness:.1f} (higher = sharper edges)")
+            else:
+                self.sharpness_scale.config(state=tk.DISABLED)
+                self.sharpness_label.config(text="Not supported by camera")
+
+            logger.info("Camera settings UI updated")
+        except Exception as e:
+            logger.warning(f"Failed to update camera settings UI: {e}")
 
     def _on_camera_disconnect(self) -> None:
         """Disconnect from camera"""
@@ -337,6 +434,30 @@ class MainWindow:
 
         if self._camera.is_connected:
             self._camera.set_exposure(exposure)
+
+    def _on_gain_change(self, value: str) -> None:
+        """Handle gain slider change"""
+        gain = float(value)
+        self.gain_label.config(text=f"{gain:.1f} dB (lower = sharper)")
+
+        if self._camera.is_connected:
+            self._camera.set_gain(gain)
+
+    def _on_gamma_change(self, value: str) -> None:
+        """Handle gamma slider change"""
+        gamma = float(value)
+        self.gamma_label.config(text=f"{gamma:.2f} (1.0 = no correction)")
+
+        if self._camera.is_connected:
+            self._camera.set_gamma(gamma)
+
+    def _on_sharpness_change(self, value: str) -> None:
+        """Handle sharpness slider change"""
+        sharpness = float(value)
+        self.sharpness_label.config(text=f"{sharpness:.1f} (higher = sharper edges)")
+
+        if self._camera.is_connected:
+            self._camera.set_sharpness(sharpness)
 
     def _on_detection_toggle(self) -> None:
         """Handle detection enable/disable"""

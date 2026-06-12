@@ -364,6 +364,195 @@ class BaslerGigECamera:
         except Exception as e:
             logger.error(f"Failed to set exposure: {e}")
 
+    def set_gain(self, gain_db: float) -> bool:
+        """
+        Set camera gain
+
+        Args:
+            gain_db: Gain value in dB (typically 0-24 dB for Basler cameras)
+
+        Returns:
+            True if successful
+        """
+        if not self._camera or not self._is_connected:
+            return False
+
+        try:
+            # Disable auto gain first
+            if hasattr(self._camera, "GainAuto"):
+                self._camera.GainAuto.SetValue("Off")
+
+            # Set gain value (GainRaw for older cameras, Gain for newer)
+            if hasattr(self._camera, "GainRaw"):
+                # Convert dB to raw value (approximate)
+                self._camera.GainRaw.SetValue(int(gain_db * 10))
+            elif hasattr(self._camera, "Gain"):
+                self._camera.Gain.SetValue(gain_db)
+
+            logger.info(f"Gain set to {gain_db} dB")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to set gain: {e}")
+            return False
+
+    def get_gain(self) -> float:
+        """Get current gain value in dB"""
+        if not self._camera or not self._is_connected:
+            return 0.0
+
+        try:
+            if hasattr(self._camera, "Gain"):
+                return self._camera.Gain.GetValue()
+            elif hasattr(self._camera, "GainRaw"):
+                return self._camera.GainRaw.GetValue() / 10.0
+        except Exception as e:
+            logger.warning(f"Failed to get gain: {e}")
+        return 0.0
+
+    def get_gain_range(self) -> tuple:
+        """Get gain range (min, max) in dB"""
+        if not self._camera or not self._is_connected:
+            return (0.0, 24.0)
+
+        try:
+            if hasattr(self._camera, "Gain"):
+                return (self._camera.Gain.GetMin(), self._camera.Gain.GetMax())
+            elif hasattr(self._camera, "GainRaw"):
+                return (self._camera.GainRaw.GetMin() / 10.0, self._camera.GainRaw.GetMax() / 10.0)
+        except Exception as e:
+            logger.warning(f"Failed to get gain range: {e}")
+        return (0.0, 24.0)
+
+    def set_gamma(self, gamma: float) -> bool:
+        """
+        Set camera gamma correction
+
+        Args:
+            gamma: Gamma value (typically 0.25-2.0, 1.0 = no correction)
+
+        Returns:
+            True if successful
+        """
+        if not self._camera or not self._is_connected:
+            return False
+
+        try:
+            # Enable gamma correction
+            if hasattr(self._camera, "GammaEnable"):
+                self._camera.GammaEnable.SetValue(True)
+
+            # Set gamma value
+            if hasattr(self._camera, "Gamma"):
+                self._camera.Gamma.SetValue(gamma)
+                logger.info(f"Gamma set to {gamma}")
+                return True
+            else:
+                logger.warning("Camera does not support Gamma adjustment")
+                return False
+        except Exception as e:
+            logger.error(f"Failed to set gamma: {e}")
+            return False
+
+    def get_gamma(self) -> float:
+        """Get current gamma value"""
+        if not self._camera or not self._is_connected:
+            return 1.0
+
+        try:
+            if hasattr(self._camera, "Gamma"):
+                return self._camera.Gamma.GetValue()
+        except Exception as e:
+            logger.warning(f"Failed to get gamma: {e}")
+        return 1.0
+
+    def get_gamma_range(self) -> tuple:
+        """Get gamma range (min, max)"""
+        if not self._camera or not self._is_connected:
+            return (0.25, 2.0)
+
+        try:
+            if hasattr(self._camera, "Gamma"):
+                return (self._camera.Gamma.GetMin(), self._camera.Gamma.GetMax())
+        except Exception as e:
+            logger.warning(f"Failed to get gamma range: {e}")
+        return (0.25, 2.0)
+
+    def set_sharpness(self, sharpness: float) -> bool:
+        """
+        Set camera sharpness enhancement
+
+        Args:
+            sharpness: Sharpness value (typically 0-1.0 or 0-4.0 depending on camera)
+
+        Returns:
+            True if successful
+        """
+        if not self._camera or not self._is_connected:
+            return False
+
+        try:
+            # Try different sharpness parameter names used by Basler cameras
+            if hasattr(self._camera, "SharpnessEnhancement"):
+                self._camera.SharpnessEnhancement.SetValue(sharpness)
+                logger.info(f"SharpnessEnhancement set to {sharpness}")
+                return True
+            elif hasattr(self._camera, "DemosaicingMode"):
+                # Some cameras use DemosaicingMode for sharpness
+                # BaslerPGI mode enables sharpening
+                if sharpness > 0:
+                    self._camera.DemosaicingMode.SetValue("BaslerPGI")
+                    if hasattr(self._camera, "NoiseReduction"):
+                        self._camera.NoiseReduction.SetValue(max(0, 1.0 - sharpness))
+                    if hasattr(self._camera, "SharpnessEnhancement"):
+                        self._camera.SharpnessEnhancement.SetValue(sharpness)
+                else:
+                    self._camera.DemosaicingMode.SetValue("Simple")
+                logger.info(f"Sharpness mode set (BaslerPGI: {sharpness > 0})")
+                return True
+            else:
+                logger.warning("Camera does not support Sharpness adjustment")
+                return False
+        except Exception as e:
+            logger.error(f"Failed to set sharpness: {e}")
+            return False
+
+    def get_sharpness(self) -> float:
+        """Get current sharpness value"""
+        if not self._camera or not self._is_connected:
+            return 0.0
+
+        try:
+            if hasattr(self._camera, "SharpnessEnhancement"):
+                return self._camera.SharpnessEnhancement.GetValue()
+        except Exception as e:
+            logger.warning(f"Failed to get sharpness: {e}")
+        return 0.0
+
+    def get_sharpness_range(self) -> tuple:
+        """Get sharpness range (min, max)"""
+        if not self._camera or not self._is_connected:
+            return (0.0, 4.0)
+
+        try:
+            if hasattr(self._camera, "SharpnessEnhancement"):
+                return (
+                    self._camera.SharpnessEnhancement.GetMin(),
+                    self._camera.SharpnessEnhancement.GetMax(),
+                )
+        except Exception as e:
+            logger.warning(f"Failed to get sharpness range: {e}")
+        return (0.0, 4.0)
+
+    def has_sharpness_support(self) -> bool:
+        """Check if camera supports sharpness enhancement"""
+        if not self._camera or not self._is_connected:
+            return False
+
+        try:
+            return hasattr(self._camera, "SharpnessEnhancement") or hasattr(self._camera, "DemosaicingMode")
+        except:
+            return False
+
     def get_info(self) -> Dict[str, Any]:
         """Get camera information"""
         if not self._is_connected:
@@ -377,6 +566,12 @@ class BaslerGigECamera:
                     info["exposure_us"] = self._camera.ExposureTimeAbs.GetValue()
                 elif hasattr(self._camera, "ExposureTime"):
                     info["exposure_us"] = self._camera.ExposureTime.GetValue()
+
+                # Add gain, gamma, sharpness info
+                info["gain_db"] = self.get_gain()
+                info["gamma"] = self.get_gamma()
+                info["sharpness"] = self.get_sharpness()
+                info["has_sharpness"] = self.has_sharpness_support()
             except:
                 pass
 
