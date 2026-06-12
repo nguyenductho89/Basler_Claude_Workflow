@@ -250,9 +250,11 @@ Interface:
 │  │ + radius: float     │         │ + min_circularity: float                │
 │  │ + diameter_mm: float│         │ + blur_kernel: int  │                   │
 │  │ + circularity: float│         │ + edge_margin: int  │                   │
-│  │ + area_mm2: float   │         │ + show_contours: bool                   │
-│  │ + status: Status    │         │ + show_diameter: bool                   │
-│  └─────────────────────┘         │ + show_label: bool  │                   │
+│  │ + area_mm2: float   │         │ + threshold_method: str  ← "otsu"/"otsu_inv"/"adaptive"
+│  │ + status: Status    │         │ + morph_close_kernel: int ← 0=disabled  │
+│  └─────────────────────┘         │ + show_contours: bool                   │
+│                                  │ + show_diameter: bool                   │
+│                                  │ + show_label: bool  │                   │
 │                                  └─────────────────────┘                   │
 │                                                                             │
 │  ┌─────────────────────┐         ┌─────────────────────┐                   │
@@ -347,7 +349,10 @@ Interface:
 │                                                                   ▼         │
 │  ┌──────────────────────────────────────────────────────────────────────┐  │
 │  │                         Binary Threshold                              │  │
-│  │                    (Otsu's Method / Adaptive)                         │  │
+│  │  • otsu_inv (default): THRESH_BINARY_INV — dark boss on bright plate  │  │
+│  │  • otsu: THRESH_BINARY — bright holes (backlit through-holes)         │  │
+│  │  • adaptive: Uneven lighting across FOV                               │  │
+│  │  + Morphological Close (morph_close_kernel) to smooth boundaries      │  │
 │  └────────────────────────────────┬─────────────────────────────────────┘  │
 │                                   │                                        │
 │                                   ▼                                        │
@@ -745,12 +750,14 @@ Timeline: |<── Grab ──>|<── Process ──>|<── Output ──>|
     "detection": {
       "type": "object",
       "properties": {
-        "pixel_to_mm": {"type": "number", "default": 0.00644},
-        "min_diameter_mm": {"type": "number", "default": 1.0},
-        "max_diameter_mm": {"type": "number", "default": 20.0},
-        "min_circularity": {"type": "number", "default": 0.85},
-        "blur_kernel": {"type": "integer", "default": 5},
-        "edge_margin": {"type": "integer", "default": 10}
+        "pixel_to_mm": {"type": "number", "default": 0.00645},
+        "min_diameter_mm": {"type": "number", "default": 5.0},
+        "max_diameter_mm": {"type": "number", "default": 25.0},
+        "min_circularity": {"type": "number", "default": 0.75},
+        "blur_kernel": {"type": "integer", "default": 11},
+        "edge_margin": {"type": "integer", "default": 10},
+        "threshold_method": {"type": "string", "enum": ["otsu", "otsu_inv", "adaptive"], "default": "otsu_inv"},
+        "morph_close_kernel": {"type": "integer", "default": 5, "description": "0=disabled; smooths contour boundaries post-threshold"}
       }
     },
     "tolerance": {
@@ -1594,9 +1601,140 @@ web-dashboard/               # NEW: Frontend
 
 ---
 
-**Document Version:** 1.3
+## 17. Phân Tích Vật Thể Và Quyết Định Chiếu Sáng
+
+### 17.1 Đặc Tính Vật Thể: Speed Nut / Spring Nut
+
+Đây là phân tích kỹ thuật dẫn đến quyết định thay đổi hệ thống chiếu sáng từ backlight sang reflected light.
+
+#### Cấu Trúc 3D
+
+```
+Camera (nhìn từ trên)
+         │
+         ▼
+┌─────────────────────────┐  Flat plate: zinc-plated steel
+│     ┌─────────────┐     │  ~22 × 16mm
+│     │ Drawn boss  │     │  ← Boss outer edge = FEATURE CẦN ĐO
+│     │ (circular)  │     │    Kim loại đặc, không xuyên sáng
+│     │  ┌───────┐  │     │
+│     │  │Spring │  │     │  ← Butterfly/irregular shape
+│     │  │opening│  │     │    Backlight CHỈ xuyên qua đây
+│     │  └───────┘  │     │
+│     └─────────────┘     │
+└─────────────────────────┘
+         │
+     [Backlight]  ← SAI: chỉ soi qua lỗ butterfly
+```
+
+#### Tại Sao Backlight Thất Bại
+
+| Bước | Backlit | Reflected |
+|------|---------|-----------|
+| Binary threshold | Spring opening = white (irregular) | Flat plate = white, boss = dark |
+| RETR_EXTERNAL | Tìm contour của spring opening | Tìm contour của boss interior |
+| Circularity | ~0.3–0.5 (butterfly) | ~0.8–0.95 (circular boss) |
+| Kết quả | Reject vì < 0.85 | Accept ✓ |
+
+**Bằng chứng từ debug log:**
+```
+top5_areas=['6655082', '345369', '13', ...]  → 2 contours pass area filter, cả 2 fail circularity
+```
+- 6.6M px² = nền backlit (background hình bất quy tắc)
+- 345K px² ≈ ⌀4.3mm = spring opening (circularity < 0.85 vì butterfly shape)
+
+### 17.2 Threshold Mode Selection
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                    THRESHOLD MODE SELECTION                        │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  Is the target feature BRIGHT on DARK background?                │
+│  (e.g., backlit through-holes in metal sheet)                    │
+│                     │                                            │
+│           YES       │       NO                                   │
+│            ▼        │        ▼                                   │
+│       "otsu"        │   "otsu_inv"                               │
+│  (THRESH_BINARY)    │   (THRESH_BINARY_INV)                      │
+│                     │                                            │
+│                     │  Is there uneven lighting across FOV?      │
+│                     │           │                                │
+│                  YES│       NO  │                                │
+│                   ▼ │        ▼  │                                │
+│              "adaptive"  "otsu_inv"                              │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### 17.3 Recommended Physical Setup
+
+```
+         Basler acA4600-7gc
+                │
+         HK-YC10-80H Telecentric
+         WD = 228mm (FIXED)
+                │
+    ┌───────────┴───────────┐
+    │  Ring Light           │   ← Coaxial diffuse hoặc 30–45° ring
+    │  Ø150–200mm, White    │     Continuous mode, 24V DC
+    │  LED (420–660nm)      │
+    └───────────┬───────────┘
+                │
+           WD = 228mm
+                │
+                ▼
+    ┌───────────────────────┐
+    │   Speed Nut Part      │   Flat plate sáng, boss edge tối
+    └───────────────────────┘
+
+Camera settings:
+  - Exposure: 2000–5000µs (bắt đầu 2000, tăng dần)
+  - Gain: 0dB
+  - Gamma: 0.8–1.0
+```
+
+### 17.4 Detection Pipeline cho Speed Nut
+
+```
+Input frame (BGR, 4608×3288)
+        │
+        ▼
+Grayscale conversion
+        │
+        ▼
+GaussianBlur (kernel=11) ← Phù hợp 14MP
+        │
+        ▼
+THRESH_BINARY_INV + OTSU ← otsu_inv mode
+Flat plate → BLACK (bright → inverted → black)
+Boss interior → WHITE (dark → inverted → white)
+        │
+        ▼
+MorphologyEx CLOSE (kernel=5) ← Smooth boss boundary
+        │
+        ▼
+findContours(RETR_EXTERNAL)
+→ Tìm WHITE blobs = boss interior regions
+        │
+        ▼
+Filter: area 18869–7547676 px² (⌀5–25mm @ 0.00645mm/px)
+        │
+        ▼
+Filter: circularity ≥ 0.75
+        │
+        ▼
+Filter: edge_margin = 10px
+        │
+        ▼
+minEnclosingCircle() → diameter_mm = 2r × pixel_to_mm
+```
+
+---
+
+**Document Version:** 1.4
 **Created Date:** 2025-12-26
-**Last Updated:** 2025-12-27
+**Last Updated:** 2026-06-12
 **Author:** Development Team
 **Status:** Approved
 
@@ -1610,3 +1748,4 @@ web-dashboard/               # NEW: Frontend
 | 1.1 | 2025-12-26 | Added PLC/IO Interface (6.4), Threading Model (9.3) |
 | 1.2 | 2025-12-27 | Added Sequence Diagrams, State Machines, Deployment Diagram, Security |
 | 1.3 | 2025-12-27 | Added Web Dashboard Architecture (Section 16), AppCore, WebSocket design |
+| 1.4 | 2026-06-12 | Thêm Section 17 (Part Analysis & Lighting Decision). Cập nhật DetectionConfig class với threshold_method + morph_close_kernel. Cập nhật Data Flow Diagram và Config Schema defaults theo reflected light setup. |

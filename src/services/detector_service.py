@@ -93,19 +93,33 @@ class CircleDetector:
             kernel_size += 1
         blurred = cv2.GaussianBlur(gray, (kernel_size, kernel_size), 0)
 
-        # Threshold to separate holes from the workpiece body.
+        # Threshold to separate the target feature from background.
         if self._config.threshold_method == "adaptive":
             # Adaptive handles uneven lighting across the FOV. Block size scales
-            # with the image so large holes stay within a single neighbourhood.
+            # with the image so large features stay within a single neighbourhood.
             block_size = max(51, (min(frame.shape[:2]) // 10) | 1)  # ensure odd
             binary = cv2.adaptiveThreshold(
                 blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, block_size, 2
             )
             logger.debug(f"Preprocess: adaptive threshold, block_size={block_size}")
+        elif self._config.threshold_method == "otsu_inv":
+            # Inverted Otsu: dark features (boss/countersink) on bright background
+            # (reflected coaxial or ring light on shiny metal plate).
+            # The dark boss interior becomes white (foreground) for contour finding.
+            _, binary = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+            logger.debug("Preprocess: Otsu-INV threshold (reflected light mode)")
         else:
-            # Otsu is ideal for backlit silhouettes (clean bimodal histogram).
+            # Standard Otsu: bright features on dark background (backlit through-holes).
             _, binary = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-            logger.debug("Preprocess: Otsu threshold")
+            logger.debug("Preprocess: Otsu threshold (backlit mode)")
+
+        # Morphological closing: fills small gaps on the bright hole boundary
+        # caused by surface texture / partial occlusion, improving circularity.
+        if self._config.morph_close_kernel > 0:
+            k = self._config.morph_close_kernel
+            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k))
+            binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
+            logger.debug(f"Preprocess: morphological close, kernel={k}")
 
         return binary
 
@@ -129,6 +143,9 @@ class CircleDetector:
         logger.debug(f"Found {len(contours)} contours")
 
         hole_id = 0
+        rejected_area = 0
+        rejected_circularity = 0
+        rejected_edge = 0
         for contour in contours:
             # Calculate contour properties
             area = cv2.contourArea(contour)
@@ -143,6 +160,7 @@ class CircleDetector:
                 logger.debug(
                     f"Contour rejected: area={area:.0f}px² " f"(range: {self._min_area_px:.0f}-{self._max_area_px:.0f})"
                 )
+                rejected_area += 1
                 continue
 
             # Calculate circularity
@@ -150,7 +168,12 @@ class CircleDetector:
 
             # Skip if not circular enough
             if circularity < self._config.min_circularity:
-                logger.debug(f"Contour rejected: circularity={circularity:.3f} < {self._config.min_circularity}")
+                logger.info(
+                    f"Contour rejected circularity={circularity:.4f} "
+                    f"(need >={self._config.min_circularity}) | area={area:.0f}px², "
+                    f"perimeter={perimeter:.0f}px"
+                )
+                rejected_circularity += 1
                 continue
 
             # Fit minimum enclosing circle
@@ -165,6 +188,7 @@ class CircleDetector:
                 or cy + radius > height - margin
             ):
                 logger.debug(f"Contour rejected: too close to edge (center=({cx:.0f},{cy:.0f}), r={radius:.0f})")
+                rejected_edge += 1
                 continue
 
             # Calculate measurements
@@ -186,7 +210,17 @@ class CircleDetector:
             circles.append(circle)
             logger.debug(f"Circle detected: id={hole_id}, diameter={diameter_mm:.3f}mm, circularity={circularity:.3f}")
 
-        logger.info(f"Detected {len(circles)} circle(s) from {len(contours)} contours")
+        if len(circles) == 0 and len(contours) > 0:
+            top_areas = sorted([cv2.contourArea(c) for c in contours], reverse=True)[:5]
+            logger.info(
+                f"Detected 0 circle(s) from {len(contours)} contours "
+                f"[rejected: area={rejected_area}, circularity={rejected_circularity}, edge={rejected_edge}] "
+                f"| area_range={self._min_area_px:.0f}-{self._max_area_px:.0f}px² "
+                f"| top5_areas={[f'{a:.0f}' for a in top_areas]} "
+                f"| circularity_threshold={self._config.min_circularity}, method={self._config.threshold_method}"
+            )
+        else:
+            logger.info(f"Detected {len(circles)} circle(s) from {len(contours)} contours")
         return circles
 
     def detect_with_hough(self, frame: np.ndarray) -> List[CircleResult]:

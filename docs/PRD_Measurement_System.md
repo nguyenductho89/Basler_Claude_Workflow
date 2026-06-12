@@ -17,7 +17,7 @@ Xây dựng hệ thống kiểm tra chất lượng tự động (Automated Qual
 ### 1.3 Phạm Vi Dự Án
 | Hạng mục | Mô tả |
 |----------|-------|
-| Loại sản phẩm | Chi tiết kim loại có lỗ tròn |
+| Loại sản phẩm | Speed nut / Spring nut (đai ốc lò xo dập, mạ kẽm). Tấm kim loại chữ nhật ~22×16mm có vành boss tròn dập (drawn boss) đường kính ~4–15mm chứa cơ cấu lò xo bên trong. |
 | Vị trí lắp đặt | Trên dây chuyền băng tải |
 | Chế độ hoạt động | Thời gian thực (Real-time) |
 | Môi trường | Nhà máy sản xuất công nghiệp |
@@ -307,9 +307,9 @@ Postcondition: Hệ thống đã được calibrate
 - **Mô tả**: Chụp ảnh chi tiết kim loại khi di chuyển qua vùng kiểm tra
 - **Yêu cầu**:
   - Trigger từ cảm biến quang (Photoelectric Sensor)
-  - Thời gian phơi sáng có thể điều chỉnh (Exposure Time)
-  - Backlight sáng liên tục (Continuous Lighting)
-  - Exposure time ngắn để tránh motion blur (khuyến nghị ≤50µs @10m/min)
+  - Thời gian phơi sáng có thể điều chỉnh: **2000–5000µs** (reflected light)
+  - **Reflected coaxial light hoặc ring light chiếu từ trên xuống (Continuous Mode)**
+  - Exposure time đủ để thu đủ ánh sáng phản xạ từ bề mặt kim loại
 
 #### F02: Tự Động Phát Hiện Hình Tròn
 - **Mô tả**: Tự động phát hiện tất cả các lỗ tròn trên vật thể khi chạy qua camera
@@ -495,33 +495,27 @@ Postcondition: Hệ thống đã được calibrate
 #### B. Hệ Thống Chiếu Sáng
 | Thành phần | Khuyến nghị |
 |------------|-------------|
-| Loại đèn | LED Backlight (chiếu ngược) |
-| Kích thước | 50mm × 50mm (lớn hơn FOV 29.7×21.9mm) |
-| Màu sắc | Red LED (620nm) hoặc Green LED (520nm) |
+| Loại đèn | **Coaxial Diffuse LED hoặc Low-angle Ring Light** |
+| Hướng chiếu | **Từ trên xuống (reflected light)** — KHÔNG dùng backlight |
+| Kích thước ring | Đường kính 150–200mm (phù hợp WD=228mm, góc 30–45°) |
+| Màu sắc | White LED hoặc Red LED (620nm) |
 | **Chế độ hoạt động** | **Sáng liên tục (Continuous Mode)** |
 | Nguồn cấp | 24V DC với Dimmer điều chỉnh độ sáng |
-| Bước sóng | Trong dải 420~660nm (theo spec lens) |
-| Lý do | Backlight tạo silhouette rõ nét cho đo lường |
+| Bước sóng | Trong dải 420–660nm (theo spec lens) |
 
-**Lưu ý chế độ sáng liên tục:**
-| Ưu điểm | Nhược điểm |
-|---------|------------|
-| Đơn giản, không cần đồng bộ trigger | Cần giảm exposure time để tránh motion blur |
-| Chi phí thấp hơn (không cần strobe controller) | Tiêu thụ điện liên tục |
-| Dễ cài đặt và bảo trì | Tuổi thọ LED có thể ngắn hơn |
-| Phù hợp cho tốc độ băng tải thấp-trung bình | Nếu cần tốc độ cao, nâng cấp lên Strobe |
+**⚠️ LÝ DO KHÔNG DÙNG BACKLIGHT:**
+Speed nut / spring nut có cấu trúc:
+1. Tấm kim loại phẳng (đặc, không xuyên sáng)
+2. Vành boss tròn dập vào tấm — **đây là feature cần đo** (kim loại đặc)
+3. Lỗ spring bên trong (irregular butterfly shape) — backlight CHỈ soi được qua đây
 
-**Tính toán Exposure Time tối đa (tránh motion blur):**
-```
-Giả sử tốc độ băng tải: 10 m/min = 166.7 mm/s
-Độ phân giải: 6.5 µm/pixel
-Motion blur cho phép: 1 pixel
+Backlight sẽ chiếu qua lỗ spring (hình bất quy tắc), tạo blob sáng không tròn → circularity luôn < 0.5 → không detect được.
+Reflected light chiếu lên bề mặt → flat plate = sáng, boss edge = tối → detect được vành tròn cần đo.
 
-Exposure Time max = 6.5 µm / 166.7 mm/s = 0.039 ms ≈ 39 µs
-
-➜ Khuyến nghị: Exposure ≤ 50 µs với tốc độ 10 m/min
-➜ Nếu băng tải chậm hơn, có thể tăng exposure time
-```
+**Kết quả mong đợi với reflected coaxial light:**
+- Flat plate (bề mặt phẳng phản xạ) → **trắng sáng**
+- Thành boss (bề mặt nghiêng) → **xám gradient**
+- **Biên ngoài boss = vòng tối rõ nét** trên nền sáng
 
 #### B1. Bố Trí Lắp Đặt (Khoảng Cách)
 ```
@@ -536,19 +530,19 @@ Exposure Time max = 6.5 µm / 166.7 mm/s = 0.039 ms ≈ 39 µs
                     │  (200.5mm)  │
                     └──────┬──────┘
                            │
+              ┌────────────┴────────────┐
+              │    Ring Light / Coaxial  │
+              │    LED (30–45°)          │
+              │    Ø150–200mm            │
+              └────────────┬────────────┘
+                           │
                       WD = 228mm
                            │
                            ▼
     ════════════════[ VẬT THỂ ]════════════════  ← Băng tải
-                           │
-                      ~50-100mm
-                           │
-                    ┌──────┴──────┐
-                    │  Backlight  │
-                    │  50×50mm    │
-                    └─────────────┘
 
-Tổng chiều cao từ backlight đến camera: ~480mm
+Tổng chiều cao từ băng tải đến camera: ~430mm
+(Không cần backlight — bỏ hẳn)
 ```
 
 #### C. PC Xử Lý Ảnh
@@ -619,8 +613,10 @@ Tổng chiều cao từ backlight đến camera: ~480mm
 │         │                                                              │
 │         ▼                                                              │
 │  ┌──────────────┐                                                      │
-│  │ Binary       │  Otsu's Method hoặc Adaptive Threshold               │
-│  │ Threshold    │  → Backlight: Lỗ = Trắng, Vật = Đen                  │
+│  │ Binary       │  Otsu's Method (otsu / otsu_inv / adaptive)          │
+│  │ Threshold    │  • otsu_inv (mặc định): Flat plate = Trắng,          │
+│  │              │    Boss/lỗ tối = Đen → Invert → Boss = Trắng         │
+│  │              │  • otsu: Backlit silhouette (lỗ sáng trên nền tối)   │
 │  └──────┬───────┘                                                      │
 │         │                                                              │
 │         ▼                                                              │
@@ -659,14 +655,22 @@ Tổng chiều cao từ backlight đến camera: ~480mm
 
 ### 7.3 Tham Số Cấu Hình Phát Hiện Tự Động
 
-| Tham số | Mô tả | Giá trị mặc định | Phạm vi |
+| Tham số | Mô tả | Giá trị hiện tại | Phạm vi |
 |---------|-------|------------------|---------|
-| `min_diameter` | Đường kính lỗ nhỏ nhất (mm) | 1.0 | 0.5 ~ 50 |
-| `max_diameter` | Đường kính lỗ lớn nhất (mm) | 20.0 | 1.0 ~ 80 |
-| `min_circularity` | Độ tròn tối thiểu | 0.85 | 0.7 ~ 1.0 |
-| `blur_kernel` | Kích thước kernel blur | 5 | 3, 5, 7 |
-| `threshold_method` | Phương pháp threshold | Otsu | Otsu/Adaptive |
+| `min_diameter_mm` | Đường kính tối thiểu (mm) | **5.0** | 1.0 ~ 50 |
+| `max_diameter_mm` | Đường kính tối đa (mm) | **25.0** | 5.0 ~ 80 |
+| `min_circularity` | Độ tròn tối thiểu | **0.75** | 0.5 ~ 1.0 |
+| `blur_kernel` | Kích thước kernel blur | **11** | 3, 5, 7, 11, 15 |
+| `threshold_method` | Phương pháp threshold | **otsu_inv** | otsu / otsu_inv / adaptive |
+| `morph_close_kernel` | Kernel morphological closing (px) | **5** | 0 (tắt) ~ 21 |
 | `edge_margin` | Khoảng cách tối thiểu từ biên ảnh (px) | 10 | 5 ~ 50 |
+
+**Giải thích threshold_method:**
+| Giá trị | Khi dùng |
+|---------|----------|
+| `otsu_inv` | **Mặc định** — Reflected coaxial/ring light. Boss tối trên nền sáng. |
+| `otsu` | Backlit — Lỗ thông sáng trên nền tối (không áp dụng cho speed nut). |
+| `adaptive` | Ánh sáng không đều trên FOV. |
 
 ### 7.4 Công Thức Tính Circularity (Độ Tròn)
 
@@ -826,6 +830,8 @@ Tốc độ băng tải = 100 × 100mm/min = 10,000 mm/min = 10 m/min
 | Rủi Ro | Mức độ | Giải pháp |
 |--------|--------|-----------|
 | Phản xạ bề mặt kim loại | Cao | Sử dụng Backlight + Polarizer |
+| Chiếu sáng sai loại (backlight cho solid part) | Cao | **Dùng reflected coaxial/ring light; backlight chỉ cho lỗ thông** |
+| Overexposure với reflected light | Trung bình | Giảm exposure xuống 2000–5000µs; dùng dimmer |
 | Motion blur (với continuous light) | Trung bình | Giảm exposure time ≤50µs, hoặc nâng cấp Strobe |
 | Rung động băng tải | Trung bình | Giảm exposure time, cố định camera chắc chắn |
 | Bụi bám lens | Trung bình | Vỏ bảo vệ IP65 + Air purge |
@@ -1192,13 +1198,65 @@ Với F/6.5 (mặc định):
 ➜ Vật thể cần nằm trong khoảng ±2.4mm quanh mặt phẳng tiêu cự
 ```
 
+### 14.4 Phân Tích Vật Thể & Lựa Chọn Chiếu Sáng
+
+#### Cấu Trúc Speed Nut / Spring Nut
+```
+┌─────────────────────────────────────────┐
+│  Flat plate (zinc-plated ~22×16mm)      │
+│    ┌───────────────┐                    │
+│    │  Drawn boss   │  ← Feature cần đo  │
+│    │  (circular)   │    Ø ~8–15mm        │
+│    │  ┌─────────┐  │                    │
+│    │  │ Spring  │  │                    │
+│    │  │ opening │  │  ← Butterfly shape │
+│    │  │(không   │  │    (KHÔNG phải     │
+│    │  │ tròn)   │  │     lỗ cần đo)     │
+│    │  └─────────┘  │                    │
+│    └───────────────┘                    │
+└─────────────────────────────────────────┘
+```
+
+#### Tại Sao Backlight Không Hoạt Động
+- Backlight chiếu từ dưới lên → ánh sáng chỉ xuyên qua **lỗ spring** (hình butterfly)
+- Boss tròn cần đo là **kim loại đặc** → không xuyên sáng
+- Kết quả: Otsu binary chỉ thấy blob butterfly không tròn → circularity ~0.3–0.5 → reject
+
+#### Tại Sao Reflected Light Hoạt Động
+- Reflected light từ trên → **flat plate** phản xạ mạnh (sáng)
+- **Boss edge** (bề mặt nghiêng ~90°) phản xạ yếu → tối
+- Binary (otsu_inv): Boss interior = white (foreground), plate = black
+- `RETR_EXTERNAL` tìm contour của boss = **đường tròn cần đo** ✓
+
+#### Camera Settings Theo Loại Ánh Sáng
+| Chế độ | Exposure | Gain | Gamma | Ghi chú |
+|--------|----------|------|-------|---------|
+| Reflected coaxial | 2000–5000µs | 0dB | 0.8–1.0 | Tăng dần đến khi boss rõ |
+| Ring light 45° | 1000–3000µs | 0dB | 1.0 | Tuỳ cường độ đèn |
+| Backlit (KHÔNG dùng) | 50µs | 0dB | 1.0 | Chỉ dùng nếu part có lỗ thông sáng |
+
 ### 14.3 Checklist Trước Khi Triển Khai
 
-- [ ] Xác nhận kích thước lỗ thực tế nằm trong FOV (29.7×21.9mm)
-- [ ] Kiểm tra độ dày vật thể < DoF (±2.4mm)
-- [ ] Đảm bảo vật thể phẳng và vuông góc với trục quang
-- [ ] Chuẩn bị mẫu chuẩn cho calibration
-- [ ] Kiểm tra điều kiện ánh sáng môi trường
+**Phần cứng:**
+- [ ] Đèn reflected coaxial hoặc ring light đã lắp đặt (KHÔNG dùng backlight)
+- [ ] WD = 228mm tính từ mặt trước lens đến bề mặt part
+- [ ] Ring light đặt góc 30–45° từ ngang, đường kính ~150–200mm
+- [ ] Kiểm tra kích thước boss thực tế nằm trong FOV (29.7×21.9mm)
+- [ ] Độ dày part < DoF (±2.4mm @ F/6.5, ±14.8mm @ F/16)
+- [ ] Bề mặt part vuông góc với trục quang (±1°)
+
+**Phần mềm:**
+- [ ] `threshold_method = "otsu_inv"` (reflected light)
+- [ ] `blur_kernel = 11` (phù hợp camera 14MP)
+- [ ] `morph_close_kernel = 5`
+- [ ] `min_circularity = 0.75` (tinh chỉnh sau khi có ảnh thực)
+- [ ] Calibration với mẫu chuẩn đã biết kích thước
+- [ ] Exposure: bắt đầu 2000µs, chỉnh đến khi boss edge rõ nét
+
+**Validation:**
+- [ ] Log hiển thị `Detected 1 circle(s)` với circularity > 0.75
+- [ ] Đường kính đo được xấp xỉ kích thước boss đã biết
+- [ ] Repeatability: đo 10 lần cùng 1 part, std dev < 0.02mm
 
 ---
 
@@ -1267,7 +1325,7 @@ Bảng mã lỗi chuẩn hóa cho hệ thống.
 
 ---
 
-**Document Version:** 2.5
+**Document Version:** 2.6
 **Created Date:** 2025-12-26
 **Last Updated:** 2026-06-12
 **Author:** Development Team
@@ -1289,3 +1347,4 @@ Bảng mã lỗi chuẩn hóa cho hệ thống.
 | 2.3 | 2025-12-27 | Added Acceptance Criteria, Sprint Status, Error Codes |
 | 2.4 | 2025-12-27 | Added US-12 Web Dashboard, F10 Web Dashboard, NFR 5.5 Web Performance, Sprint 9-10 |
 | 2.5 | 2026-06-12 | Synced status with code: Sprint 9-10 (Web Dashboard) ✅ Done, US-12 AC-12.1~12.6 ✅ Pass (Release 2.1 implemented) |
+| 2.6 | 2026-06-12 | Cập nhật hệ thống chiếu sáng: backlight → reflected coaxial/ring light sau khi phân tích cấu trúc speed nut. Thêm section 14.4 phân tích vật thể. Cập nhật tham số detection (otsu_inv, blur_kernel=11, morph_close_kernel=5, min_circularity=0.75). |

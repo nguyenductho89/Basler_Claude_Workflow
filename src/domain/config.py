@@ -9,14 +9,20 @@ class DetectionConfig:
     """Configuration for circle detection"""
 
     pixel_to_mm: float = 0.00644  # mm per pixel (based on FOV calculation)
-    min_diameter_mm: float = 1.0
-    max_diameter_mm: float = 20.0
-    min_circularity: float = 0.85
-    blur_kernel: int = 5
+    min_diameter_mm: float = 5.0
+    max_diameter_mm: float = 25.0
+    min_circularity: float = 0.75
+    blur_kernel: int = 11
     edge_margin: int = 10
-    # Thresholding: "otsu" (default, best for backlit silhouettes) or
-    # "adaptive" (for scenes with uneven lighting across the FOV)
-    threshold_method: str = "otsu"
+    # Thresholding method:
+    #   "otsu"     – bright features on dark background (backlit through-holes)
+    #   "otsu_inv" – dark features on bright background (reflected coaxial/ring
+    #                light on shiny metal; boss/countersink detection)
+    #   "adaptive" – uneven lighting across FOV
+    threshold_method: str = "otsu_inv"
+    # Morphological closing kernel (px) applied after threshold to smooth
+    # contour boundaries. 0 = disabled.
+    morph_close_kernel: int = 5
     show_contours: bool = True
     show_diameter_line: bool = True
     show_label: bool = True
