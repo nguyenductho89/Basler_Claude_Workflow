@@ -189,12 +189,12 @@ Xây dựng hệ thống kiểm tra chất lượng tự động (Automated Qual
 #### US-12: Web Dashboard Remote Monitoring
 | AC ID | Acceptance Criteria | Status |
 |-------|---------------------|--------|
-| AC-12.1 | GIVEN web server running, WHEN browser accesses http://[ip]:8080, THEN dashboard displays | 🔲 Pending |
-| AC-12.2 | GIVEN dashboard open, WHEN camera streaming, THEN live video shows at ≥5 FPS | 🔲 Pending |
-| AC-12.3 | GIVEN dashboard open, WHEN circles detected, THEN results update within 500ms | 🔲 Pending |
-| AC-12.4 | GIVEN dashboard open, WHEN statistics change, THEN values update every 5 seconds | 🔲 Pending |
-| AC-12.5 | GIVEN dashboard, WHEN export clicked, THEN CSV downloads to browser | 🔲 Pending |
-| AC-12.6 | GIVEN multiple browsers connected, WHEN system running, THEN all receive updates | 🔲 Pending |
+| AC-12.1 | GIVEN web server running, WHEN browser accesses http://[ip]:8080, THEN dashboard displays | ✅ Pass |
+| AC-12.2 | GIVEN dashboard open, WHEN camera streaming, THEN live video shows at ≥5 FPS | ✅ Pass |
+| AC-12.3 | GIVEN dashboard open, WHEN circles detected, THEN results update within 500ms | ✅ Pass |
+| AC-12.4 | GIVEN dashboard open, WHEN statistics change, THEN values update every 5 seconds | ✅ Pass |
+| AC-12.5 | GIVEN dashboard, WHEN export clicked, THEN CSV downloads to browser | ✅ Pass |
+| AC-12.6 | GIVEN multiple browsers connected, WHEN system running, THEN all receive updates | ✅ Pass |
 
 ### 3.3 Use Cases
 
@@ -1068,8 +1068,8 @@ Release 2.0 Features (FINAL):
 | Sprint 6 | Release 2.0 | PLC/IO Integration | 35 | ✅ Done |
 | Sprint 7 | Release 2.0 | Integration & Testing | 34 | ✅ Done |
 | Sprint 8 | Release 2.0 | Documentation & CI/CD | 15 | ✅ Done |
-| Sprint 9 | Release 2.1 | Web Dashboard Backend | 30 | 🔲 Planned |
-| Sprint 10 | Release 2.1 | Web Dashboard Frontend | 25 | 🔲 Planned |
+| Sprint 9 | Release 2.1 | Web Dashboard Backend | 30 | ✅ Done |
+| Sprint 10 | Release 2.1 | Web Dashboard Frontend | 25 | ✅ Done |
 | **Total** | | | **280 SP** |
 
 ### 11.7 Feature Matrix by Release
@@ -1267,9 +1267,9 @@ Bảng mã lỗi chuẩn hóa cho hệ thống.
 
 ---
 
-**Document Version:** 2.4
+**Document Version:** 2.5
 **Created Date:** 2025-12-26
-**Last Updated:** 2025-12-27
+**Last Updated:** 2026-06-12
 **Author:** Development Team
 **Status:** Approved
 
@@ -1288,3 +1288,4 @@ Bảng mã lỗi chuẩn hóa cho hệ thống.
 | 2.2 | 2025-12-26 | Added Sprint Plan & Release Roadmap (MVP → Release 2.0 with PLC) |
 | 2.3 | 2025-12-27 | Added Acceptance Criteria, Sprint Status, Error Codes |
 | 2.4 | 2025-12-27 | Added US-12 Web Dashboard, F10 Web Dashboard, NFR 5.5 Web Performance, Sprint 9-10 |
+| 2.5 | 2026-06-12 | Synced status with code: Sprint 9-10 (Web Dashboard) ✅ Done, US-12 AC-12.1~12.6 ✅ Pass (Release 2.1 implemented) |
