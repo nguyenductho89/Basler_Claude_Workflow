@@ -14,6 +14,9 @@ class DetectionConfig:
     min_circularity: float = 0.85
     blur_kernel: int = 5
     edge_margin: int = 10
+    # Thresholding: "otsu" (default, best for backlit silhouettes) or
+    # "adaptive" (for scenes with uneven lighting across the FOV)
+    threshold_method: str = "otsu"
     show_contours: bool = True
     show_diameter_line: bool = True
     show_label: bool = True

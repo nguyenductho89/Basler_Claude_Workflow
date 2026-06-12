@@ -62,15 +62,12 @@ class CircleDetector:
         # Preprocessing
         binary = self._preprocess(frame)
 
-        # Find and filter circles using contour method
+        # Find and filter circles using the contour method. The circularity
+        # filter here is the system's defined gate for rejecting non-circular
+        # shapes, so we do not auto-fall back to the more lenient Hough method
+        # (which would accept ellipses). Call detect_with_hough() explicitly
+        # when ring/annulus detection is required.
         circles = self._find_circles(binary, frame.shape[:2])
-
-        # If no circles found with contour method, try Hough Circle detection
-        if not circles:
-            logger.debug("No circles found with contour method, trying Hough Circle detection...")
-            circles = self.detect_with_hough(frame)
-            if circles:
-                logger.info(f"Hough detection found {len(circles)} circle(s)")
 
         return circles, binary
 
@@ -90,34 +87,25 @@ class CircleDetector:
         else:
             gray = frame.copy()
 
-        # Apply Gaussian blur
+        # Apply Gaussian blur to reduce noise
         kernel_size = self._config.blur_kernel
         if kernel_size % 2 == 0:
             kernel_size += 1
         blurred = cv2.GaussianBlur(gray, (kernel_size, kernel_size), 0)
 
-        # Try adaptive thresholding first (better for uneven lighting/backlight)
-        # Use a large block size for better results with large circles
-        block_size = max(51, (min(frame.shape[:2]) // 10) | 1)  # Ensure odd number
-        binary_adaptive = cv2.adaptiveThreshold(
-            blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, block_size, 2
-        )
-
-        # Also try Otsu's method
-        _, binary_otsu = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-
-        # Use Canny edge detection for better edge finding
-        edges = cv2.Canny(blurred, 50, 150)
-
-        # Dilate edges to close gaps
-        kernel = np.ones((3, 3), np.uint8)
-        edges_dilated = cv2.dilate(edges, kernel, iterations=2)
-
-        # Combine methods - use the one with more distinct contours
-        # For now, prefer adaptive for backlit scenarios
-        binary = binary_adaptive
-
-        logger.debug(f"Preprocessing: block_size={block_size}, image_shape={frame.shape[:2]}")
+        # Threshold to separate holes from the workpiece body.
+        if self._config.threshold_method == "adaptive":
+            # Adaptive handles uneven lighting across the FOV. Block size scales
+            # with the image so large holes stay within a single neighbourhood.
+            block_size = max(51, (min(frame.shape[:2]) // 10) | 1)  # ensure odd
+            binary = cv2.adaptiveThreshold(
+                blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, block_size, 2
+            )
+            logger.debug(f"Preprocess: adaptive threshold, block_size={block_size}")
+        else:
+            # Otsu is ideal for backlit silhouettes (clean bimodal histogram).
+            _, binary = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            logger.debug("Preprocess: Otsu threshold")
 
         return binary
 
@@ -135,20 +123,13 @@ class CircleDetector:
         height, width = image_shape
         circles: List[CircleResult] = []
 
-        # Find contours - use RETR_EXTERNAL to get only outer contours (better for rings)
+        # Find outer contours of the thresholded holes
         contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-        # Also try inverted binary for dark circles on light background
-        binary_inv = cv2.bitwise_not(binary)
-        contours_inv, _ = cv2.findContours(binary_inv, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-        # Combine both sets of contours
-        all_contours = list(contours) + list(contours_inv)
-
-        logger.debug(f"Found {len(contours)} contours (normal) + {len(contours_inv)} contours (inverted)")
+        logger.debug(f"Found {len(contours)} contours")
 
         hole_id = 0
-        for contour in all_contours:
+        for contour in contours:
             # Calculate contour properties
             area = cv2.contourArea(contour)
             perimeter = cv2.arcLength(contour, True)
@@ -157,22 +138,10 @@ class CircleDetector:
             if perimeter < 1:
                 continue
 
-            # Calculate diameter from perimeter (more reliable for rings)
-            diameter_from_perimeter = perimeter / math.pi
-            diameter_mm_perimeter = diameter_from_perimeter * self._config.pixel_to_mm
-
-            # Calculate area-based diameter
-            if area > 0:
-                radius_from_area = math.sqrt(area / math.pi)
-                diameter_from_area = 2 * radius_from_area
-            else:
-                diameter_from_area = 0
-
             # Skip if area is out of range
             if area < self._min_area_px or area > self._max_area_px:
                 logger.debug(
-                    f"Contour rejected: area={area:.0f}px² (range: {self._min_area_px:.0f}-{self._max_area_px:.0f}), "
-                    f"diameter≈{diameter_mm_perimeter:.2f}mm"
+                    f"Contour rejected: area={area:.0f}px² " f"(range: {self._min_area_px:.0f}-{self._max_area_px:.0f})"
                 )
                 continue
 
@@ -217,7 +186,7 @@ class CircleDetector:
             circles.append(circle)
             logger.debug(f"Circle detected: id={hole_id}, diameter={diameter_mm:.3f}mm, circularity={circularity:.3f}")
 
-        logger.info(f"Detected {len(circles)} circle(s) from {len(all_contours)} contours")
+        logger.info(f"Detected {len(circles)} circle(s) from {len(contours)} contours")
         return circles
 
     def detect_with_hough(self, frame: np.ndarray) -> List[CircleResult]:
