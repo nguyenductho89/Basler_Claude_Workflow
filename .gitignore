@@ -50,3 +50,6 @@ nul
 # OS
 .DS_Store
 Thumbs.db
+
+# MCP Config (contains secrets)
+.mcp.json
