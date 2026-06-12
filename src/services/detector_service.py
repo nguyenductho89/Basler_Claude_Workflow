@@ -62,8 +62,15 @@ class CircleDetector:
         # Preprocessing
         binary = self._preprocess(frame)
 
-        # Find and filter circles
+        # Find and filter circles using contour method
         circles = self._find_circles(binary, frame.shape[:2])
+
+        # If no circles found with contour method, try Hough Circle detection
+        if not circles:
+            logger.debug("No circles found with contour method, trying Hough Circle detection...")
+            circles = self.detect_with_hough(frame)
+            if circles:
+                logger.info(f"Hough detection found {len(circles)} circle(s)")
 
         return circles, binary
 
@@ -89,8 +96,28 @@ class CircleDetector:
             kernel_size += 1
         blurred = cv2.GaussianBlur(gray, (kernel_size, kernel_size), 0)
 
-        # Binary threshold using Otsu's method
-        _, binary = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        # Try adaptive thresholding first (better for uneven lighting/backlight)
+        # Use a large block size for better results with large circles
+        block_size = max(51, (min(frame.shape[:2]) // 10) | 1)  # Ensure odd number
+        binary_adaptive = cv2.adaptiveThreshold(
+            blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, block_size, 2
+        )
+
+        # Also try Otsu's method
+        _, binary_otsu = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+        # Use Canny edge detection for better edge finding
+        edges = cv2.Canny(blurred, 50, 150)
+
+        # Dilate edges to close gaps
+        kernel = np.ones((3, 3), np.uint8)
+        edges_dilated = cv2.dilate(edges, kernel, iterations=2)
+
+        # Combine methods - use the one with more distinct contours
+        # For now, prefer adaptive for backlit scenarios
+        binary = binary_adaptive
+
+        logger.debug(f"Preprocessing: block_size={block_size}, image_shape={frame.shape[:2]}")
 
         return binary
 
@@ -108,21 +135,45 @@ class CircleDetector:
         height, width = image_shape
         circles: List[CircleResult] = []
 
-        # Find contours
-        contours, _ = cv2.findContours(binary, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+        # Find contours - use RETR_EXTERNAL to get only outer contours (better for rings)
+        contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        # Also try inverted binary for dark circles on light background
+        binary_inv = cv2.bitwise_not(binary)
+        contours_inv, _ = cv2.findContours(binary_inv, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        # Combine both sets of contours
+        all_contours = list(contours) + list(contours_inv)
+
+        logger.debug(f"Found {len(contours)} contours (normal) + {len(contours_inv)} contours (inverted)")
 
         hole_id = 0
-        for contour in contours:
+        for contour in all_contours:
             # Calculate contour properties
             area = cv2.contourArea(contour)
             perimeter = cv2.arcLength(contour, True)
 
-            # Skip if area is out of range
-            if area < self._min_area_px or area > self._max_area_px:
-                continue
-
             # Skip if perimeter is too small
             if perimeter < 1:
+                continue
+
+            # Calculate diameter from perimeter (more reliable for rings)
+            diameter_from_perimeter = perimeter / math.pi
+            diameter_mm_perimeter = diameter_from_perimeter * self._config.pixel_to_mm
+
+            # Calculate area-based diameter
+            if area > 0:
+                radius_from_area = math.sqrt(area / math.pi)
+                diameter_from_area = 2 * radius_from_area
+            else:
+                diameter_from_area = 0
+
+            # Skip if area is out of range
+            if area < self._min_area_px or area > self._max_area_px:
+                logger.debug(
+                    f"Contour rejected: area={area:.0f}px² (range: {self._min_area_px:.0f}-{self._max_area_px:.0f}), "
+                    f"diameter≈{diameter_mm_perimeter:.2f}mm"
+                )
                 continue
 
             # Calculate circularity
@@ -130,6 +181,7 @@ class CircleDetector:
 
             # Skip if not circular enough
             if circularity < self._config.min_circularity:
+                logger.debug(f"Contour rejected: circularity={circularity:.3f} < {self._config.min_circularity}")
                 continue
 
             # Fit minimum enclosing circle
@@ -143,6 +195,7 @@ class CircleDetector:
                 or cy - radius < margin
                 or cy + radius > height - margin
             ):
+                logger.debug(f"Contour rejected: too close to edge (center=({cx:.0f},{cy:.0f}), r={radius:.0f})")
                 continue
 
             # Calculate measurements
@@ -162,13 +215,15 @@ class CircleDetector:
                 status=MeasureStatus.OK,
             )
             circles.append(circle)
+            logger.debug(f"Circle detected: id={hole_id}, diameter={diameter_mm:.3f}mm, circularity={circularity:.3f}")
 
-        logger.debug(f"Detected {len(circles)} circle(s)")
+        logger.info(f"Detected {len(circles)} circle(s) from {len(all_contours)} contours")
         return circles
 
     def detect_with_hough(self, frame: np.ndarray) -> List[CircleResult]:
         """
         Alternative detection using Hough Circle Transform
+        Better for detecting ring/annulus shapes
 
         Args:
             frame: BGR image
@@ -180,39 +235,76 @@ class CircleDetector:
             return []
 
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) if len(frame.shape) == 3 else frame.copy()
-        blurred = cv2.GaussianBlur(gray, (self._config.blur_kernel, self._config.blur_kernel), 0)
 
-        # Hough Circle detection
+        # Use larger blur for Hough to reduce noise
+        blur_size = self._config.blur_kernel
+        if blur_size % 2 == 0:
+            blur_size += 1
+        blurred = cv2.GaussianBlur(gray, (blur_size, blur_size), 2)
+
+        # Calculate radius range in pixels
         min_radius = int((self._config.min_diameter_mm / 2) / self._config.pixel_to_mm)
         max_radius = int((self._config.max_diameter_mm / 2) / self._config.pixel_to_mm)
 
-        hough_circles = cv2.HoughCircles(
-            blurred,
-            cv2.HOUGH_GRADIENT,
-            dp=1,
-            minDist=min_radius * 2,
-            param1=50,
-            param2=30,
-            minRadius=min_radius,
-            maxRadius=max_radius,
+        # Ensure valid range
+        min_radius = max(5, min_radius)
+        max_radius = max(min_radius + 10, max_radius)
+
+        logger.debug(
+            f"Hough detection: radius range {min_radius}-{max_radius} px, "
+            f"diameter range {self._config.min_diameter_mm:.2f}-{self._config.max_diameter_mm:.2f} mm"
         )
 
         circles: List[CircleResult] = []
-        if hough_circles is not None:
-            for i, (x, y, r) in enumerate(hough_circles[0]):
-                diameter_mm = 2 * r * self._config.pixel_to_mm
-                area_mm2 = math.pi * (r**2) * (self._config.pixel_to_mm**2)
 
-                circle = CircleResult(
-                    hole_id=i + 1,
-                    center_x=float(x),
-                    center_y=float(y),
-                    radius=float(r),
-                    diameter_mm=diameter_mm,
-                    circularity=1.0,  # Assumed for Hough
-                    area_mm2=area_mm2,
-                    status=MeasureStatus.OK,
-                )
-                circles.append(circle)
+        # Try multiple parameter combinations for better detection
+        param_sets = [
+            (50, 30),  # Default
+            (100, 30),  # Higher edge threshold
+            (50, 20),  # Lower accumulator threshold (more sensitive)
+            (80, 25),  # Balanced
+        ]
+
+        for param1, param2 in param_sets:
+            hough_circles = cv2.HoughCircles(
+                blurred,
+                cv2.HOUGH_GRADIENT,
+                dp=1.2,  # Slightly lower resolution for speed
+                minDist=min_radius * 2,
+                param1=param1,
+                param2=param2,
+                minRadius=min_radius,
+                maxRadius=max_radius,
+            )
+
+            if hough_circles is not None:
+                logger.debug(f"Hough found {len(hough_circles[0])} circles with param1={param1}, param2={param2}")
+                height, width = frame.shape[:2]
+                margin = self._config.edge_margin
+
+                for i, (x, y, r) in enumerate(hough_circles[0]):
+                    # Check edge margin
+                    if x - r < margin or x + r > width - margin or y - r < margin or y + r > height - margin:
+                        logger.debug(f"Hough circle rejected: too close to edge")
+                        continue
+
+                    diameter_mm = 2 * r * self._config.pixel_to_mm
+                    area_mm2 = math.pi * (r**2) * (self._config.pixel_to_mm**2)
+
+                    circle = CircleResult(
+                        hole_id=len(circles) + 1,
+                        center_x=float(x),
+                        center_y=float(y),
+                        radius=float(r),
+                        diameter_mm=diameter_mm,
+                        circularity=0.95,  # Hough assumes good circularity
+                        area_mm2=area_mm2,
+                        status=MeasureStatus.OK,
+                    )
+                    circles.append(circle)
+                    logger.debug(f"Hough circle detected: center=({x:.0f},{y:.0f}), r={r:.0f}px, d={diameter_mm:.3f}mm")
+
+                if circles:
+                    break  # Found circles, stop trying other params
 
         return circles
