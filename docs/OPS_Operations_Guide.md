@@ -1,6 +1,6 @@
 # Operations Guide - Circle Measurement System
 
-## Version: 2.0.0
+## Version: 2.1.0
 
 ---
 
@@ -258,13 +258,27 @@ Copy-Item "D:\Backup\CircleMeasurement\LATEST\recipes\*" "recipes\" -Recurse
 
 ## 5. Performance Tuning
 
-### 5.1 Detection Speed Optimization
+### 5.1 Detection Parameters (v2.2)
 
-| Parameter | Default | Optimized | Notes |
-|-----------|---------|-----------|-------|
-| Blur kernel | 5 | 3 | Giảm nếu ảnh sạch |
+| Parameter | Default | Speed Nut Recommended | Notes |
+|-----------|---------|----------------------|-------|
+| min_diameter_mm | 3.0 | 10.0 | Boss ~13.2mm |
+| max_diameter_mm | 20.0 | 17.0 | Boss ~13.2mm |
+| min_circularity | 0.75 | 0.75 | Layer 2/3 filter |
+| min_fill_ratio | 0.65 | 0.65 | Layer 2/3 filter |
+| blur_kernel | 31 | 31 | Larger kernel for 14MP |
+| morph_close_kernel | 15 | 15 | Close small gaps in ring |
+| fill_holes | True | True | Ring → disk conversion (Layer 2) |
+| dominant_ratio | 5.0 | 5.0 | Bypass shape checks (Layer 1) |
+| threshold_method | otsu | otsu | Auto threshold |
 | Image resolution | Full | ROI | Crop vùng cần thiết |
-| Binary threshold | Auto | Fixed | Set fixed nếu lighting ổn định |
+
+**Three-layer detection pipeline:**
+1. **Layer 1 – Dominant Candidate**: If largest contour area ≥ `dominant_ratio` × second largest → accept immediately (handles ring fragmentation)
+2. **Layer 2 – fill_holes path**: Flood-fill ring to disk, then circularity + fill_ratio checks
+3. **Layer 3 – Hough Fallback**: `detect_with_hough()` when 0 contours pass Layer 1+2
+
+**Exposure constraint:** Camera acA4600-7gc minimum exposure is **35µs** (hardware limit). `set_exposure()` clamps values below this minimum automatically.
 
 ### 5.2 Memory Optimization
 

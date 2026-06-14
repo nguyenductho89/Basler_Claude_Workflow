@@ -39,15 +39,19 @@ Ma trận truy xuất yêu cầu (RTM) liên kết các User Stories với thi�
 | **Design** | ARD Section 3.2.2 - CircleDetector |
 | **Components** | `detector_service.py` |
 | **Classes** | `CircleDetector` |
-| **Methods** | `detect()`, `_preprocess()`, `_find_circles()` |
-| **Test Cases** | TC-DET-001 to TC-DET-005, TC-SYS-003 |
+| **Methods** | `detect()`, `_preprocess()`, `_find_circles()`, `detect_with_hough()` |
+| **Test Cases** | TC-DET-001 to TC-DET-010, TC-SYS-003 |
 | **Status** | ✅ Implemented |
 
 **Acceptance Criteria:**
 - [x] AC-02.1: Phát hiện tất cả circles trong FOV
-- [x] AC-02.2: Lọc theo min/max diameter
-- [x] AC-02.3: Lọc theo circularity
+- [x] AC-02.2: Lọc theo min/max diameter (default: 3.0mm – 20.0mm)
+- [x] AC-02.3: Lọc theo circularity (min 0.75) và fill_ratio (min 0.65)
 - [x] AC-02.4: Đo chính xác ±0.01mm sau calibration
+- [x] AC-02.5: **Layer 1** – Dominant candidate (area ratio ≥ 5.0) bypass shape checks
+- [x] AC-02.6: **Layer 2** – fill_holes preprocessing: ring annulus → solid disk
+- [x] AC-02.7: **Layer 3** – Hough fallback khi 0 contour circles
+- [x] AC-02.8: Bán kính đo bằng distance histogram (immune to noise protrusions)
 
 ---
 
@@ -123,15 +127,16 @@ Ma trận truy xuất yêu cầu (RTM) liên kết các User Stories với thi�
 | **Design** | ARD Section 6.1 - Camera Service |
 | **Components** | `camera_service.py`, `control_panel.py` |
 | **Classes** | `BaslerGigECamera` |
-| **Methods** | `set_exposure()` |
-| **Test Cases** | TC-CAM-006, TC-SYS-002 |
+| **Methods** | `set_exposure()`, `get_exposure_range()` |
+| **Test Cases** | TC-CAM-006, TC-CAM-007, TC-SYS-002 |
 | **Status** | ✅ Implemented |
 
 **Acceptance Criteria:**
 - [x] AC-06.1: Slider hoặc input box cho exposure
-- [x] AC-06.2: Range: 10µs - 1000ms
+- [x] AC-06.2: Range: **35µs** - 1000ms (clamped to hardware min 35µs on acA4600-7gc)
 - [x] AC-06.3: Thay đổi có hiệu lực ngay lập tức
 - [x] AC-06.4: Giá trị được lưu vào recipe
+- [x] AC-06.5: `get_exposure_range()` trả về (min, max) từ camera hardware
 
 ---
 
@@ -248,7 +253,7 @@ Ma trận truy xuất yêu cầu (RTM) liên kết các User Stories với thi�
 | Use Case | Description | Test Cases |
 |----------|-------------|------------|
 | UC-01 | Kết nối camera | TC-CAM-001, TC-CAM-002, TC-SYS-002 |
-| UC-02 | Tự động đo lỗ tròn | TC-DET-001 to TC-DET-005, TC-INT-001, TC-SYS-003 |
+| UC-02 | Tự động đo lỗ tròn | TC-DET-001 to TC-DET-010, TC-INT-001, TC-SYS-003 |
 | UC-03 | Thay đổi dung sai | TC-DOM-003, TC-DOM-004, TC-SYS-005 |
 | UC-04 | Calibration | TC-CAL-001 to TC-CAL-005, TC-SYS-004 |
 | UC-05 | Recipe management | TC-RCP-001 to TC-RCP-005, TC-SYS-006 |
