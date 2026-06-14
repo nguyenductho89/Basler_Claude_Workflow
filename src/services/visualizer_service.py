@@ -111,59 +111,49 @@ class CircleVisualizer:
         """Draw circle edge"""
         center = (int(circle.center_x), int(circle.center_y))
         radius = int(circle.radius)
-        cv2.circle(frame, center, radius, color, 2)
+        # Thickness 8px: at 0.17× display scale this renders as ~1.4px — visible
+        cv2.circle(frame, center, radius, color, 8)
 
     def _draw_diameter_line(self, frame: np.ndarray, circle: CircleResult) -> None:
         """Draw diameter line through center"""
         cx, cy = int(circle.center_x), int(circle.center_y)
         r = int(circle.radius)
 
-        # Horizontal diameter line
-        pt1 = (cx - r, cy)
-        pt2 = (cx + r, cy)
-        cv2.line(frame, pt1, pt2, self.COLOR_DIAMETER, 1)
-
-        # Vertical diameter line
-        pt1 = (cx, cy - r)
-        pt2 = (cx, cy + r)
-        cv2.line(frame, pt1, pt2, self.COLOR_DIAMETER, 1)
-
-        # Center point
-        cv2.circle(frame, (cx, cy), 3, self.COLOR_DIAMETER, -1)
+        cv2.line(frame, (cx - r, cy), (cx + r, cy), self.COLOR_DIAMETER, 5)
+        cv2.line(frame, (cx, cy - r), (cx, cy + r), self.COLOR_DIAMETER, 5)
+        cv2.circle(frame, (cx, cy), 15, self.COLOR_DIAMETER, -1)
 
     def _draw_label(self, frame: np.ndarray, circle: CircleResult, color: Tuple[int, int, int]) -> None:
         """Draw measurement label"""
-        # Format label text
         label = f"D={circle.diameter_mm:.3f}mm"
 
-        # Calculate label position (above circle)
         label_x = int(circle.center_x - circle.radius)
-        label_y = int(circle.center_y - circle.radius - 10)
+        label_y = int(circle.center_y - circle.radius - 40)
 
-        # Ensure label is within frame
-        if label_y < 20:
-            label_y = int(circle.center_y + circle.radius + 25)
+        if label_y < 80:
+            label_y = int(circle.center_y + circle.radius + 100)
 
-        # Get text size
+        # Font sized for 14MP source image displayed at ~0.17× scale.
+        # scale=4.0 → ~80px source height → ~14px on 800px display (readable).
         font = cv2.FONT_HERSHEY_SIMPLEX
-        font_scale = 0.5
-        thickness = 1
+        font_scale = 4.0
+        thickness = 5
         (text_w, text_h), baseline = cv2.getTextSize(label, font, font_scale, thickness)
 
-        # Draw background rectangle
-        padding = 3
-        bg_pt1 = (label_x - padding, label_y - text_h - padding)
-        bg_pt2 = (label_x + text_w + padding, label_y + padding)
-        cv2.rectangle(frame, bg_pt1, bg_pt2, self.COLOR_LABEL_BG, -1)
-
-        # Draw text
+        padding = 15
+        cv2.rectangle(
+            frame,
+            (label_x - padding, label_y - text_h - padding),
+            (label_x + text_w + padding, label_y + baseline + padding),
+            self.COLOR_LABEL_BG,
+            -1,
+        )
         cv2.putText(frame, label, (label_x, label_y), font, font_scale, color, thickness)
 
-        # Draw hole ID
         id_label = f"#{circle.hole_id}"
-        id_x = int(circle.center_x - 10)
-        id_y = int(circle.center_y + 5)
-        cv2.putText(frame, id_label, (id_x, id_y), font, 0.4, self.COLOR_LABEL_TEXT, 1)
+        id_x = int(circle.center_x - 30)
+        id_y = int(circle.center_y + 10)
+        cv2.putText(frame, id_label, (id_x, id_y), font, 3.0, self.COLOR_LABEL_TEXT, 4)
 
     def draw_binary_overlay(self, frame: np.ndarray, binary: np.ndarray, alpha: float = 0.3) -> np.ndarray:
         """
@@ -208,13 +198,12 @@ class CircleVisualizer:
 
         output = frame.copy()
         font = cv2.FONT_HERSHEY_SIMPLEX
-        font_scale = 0.6
-        thickness = 1
-        line_height = 25
+        font_scale = 2.5
+        thickness = 4
+        line_height = 80
 
         x, y = position
 
-        # Count OK/NG
         ok_count = sum(1 for c in circles if c.status == MeasureStatus.OK)
         ng_count = sum(1 for c in circles if c.status == MeasureStatus.NG)
 
