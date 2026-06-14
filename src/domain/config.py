@@ -33,6 +33,13 @@ class DetectionConfig:
     # (annulus) into a solid disk so contour-circularity → ~1.0.  Has no effect
     # when the ring has un-bridged gaps (background still reaches the interior).
     fill_holes: bool = True
+    # When the largest in-range contour is ≥ dominant_ratio × the second-largest,
+    # it is accepted as the boss regardless of circularity/fill_ratio (both metrics
+    # fail for fragmented ring contours).  Radius is measured via a distance
+    # histogram on the boundary points rather than minEnclosingCircle, which is
+    # inflated by noise blobs that merged into the ring.
+    # Set to 0.0 or 1.0 to disable (rely on circularity/fill_ratio only).
+    dominant_ratio: float = 5.0
     show_contours: bool = True
     show_diameter_line: bool = True
     show_label: bool = True

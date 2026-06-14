@@ -154,30 +154,87 @@ class CircleDetector:
         height, width = image_shape
         circles: List[CircleResult] = []
 
-        # Find outer contours of the thresholded holes
         contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
         logger.debug(f"Found {len(contours)} contours")
 
-        hole_id = 0
-        rejected_area = 0
+        # Compute all areas once; keep in-range candidates sorted largest first.
+        # Boss ring is always the largest in-range contour by a wide margin —
+        # pre-sorting enables the dominant-candidate check below.
+        all_areas = [(c, cv2.contourArea(c)) for c in contours]
+        in_range = sorted(
+            [(c, a) for c, a in all_areas if self._min_area_px <= a <= self._max_area_px],
+            key=lambda x: x[1],
+            reverse=True,
+        )
+        rejected_area = len(contours) - len(in_range)
         rejected_circularity = 0
         rejected_edge = 0
-        for contour in contours:
-            # Calculate contour properties
-            area = cv2.contourArea(contour)
+
+        # ── Dominant-candidate shortcut ───────────────────────────────────────
+        # Ring-light on zinc: the boss ring consistently appears as many arc
+        # segments in the binary image (large perimeter → circularity ≈ 0.07,
+        # fill_ratio ≈ 0.47 — both fail normal gates).  However, the boss is
+        # always 50-100× larger than any specular-noise contour.
+        #
+        # Measurement: minEnclosingCircle overestimates when noise blobs have
+        # merged into the ring and extended its bounding circle (e.g. 13.2mm
+        # boss reading as 17mm).  Distance histogram on the contour boundary
+        # finds the modal point-to-centroid distance, which peaks at the outer
+        # ring edge regardless of protrusions or gaps.
+        if self._config.dominant_ratio > 1.0 and in_range:
+            top_c, top_a = in_range[0]
+            second_a = in_range[1][1] if len(in_range) > 1 else 0.0
+            ratio = (top_a / second_a) if second_a > 0 else float("inf")
+
+            if ratio >= self._config.dominant_ratio:
+                M = cv2.moments(top_c)
+                cx = float(M["m10"] / M["m00"]) if M["m00"] > 0 else width / 2.0
+                cy = float(M["m01"] / M["m00"]) if M["m00"] > 0 else height / 2.0
+
+                pts = top_c.reshape(-1, 2).astype(np.float32)
+                dists = np.linalg.norm(pts - np.array([[cx, cy]], dtype=np.float32), axis=1)
+                n_bins = max(50, int((dists.max() - dists.min()) / 5))
+                hist, edges = np.histogram(dists, bins=n_bins)
+                peak = int(np.argmax(hist))
+                radius = float((edges[peak] + edges[peak + 1]) / 2.0)
+
+                margin = self._config.edge_margin
+                if (
+                    cx - radius < margin
+                    or cx + radius > width - margin
+                    or cy - radius < margin
+                    or cy + radius > height - margin
+                ):
+                    logger.debug("Dominant candidate rejected: too close to edge")
+                    rejected_edge += 1
+                else:
+                    diameter_mm = 2.0 * radius * self._config.pixel_to_mm
+                    area_mm2 = top_a * self._config.pixel_to_mm**2
+                    circles.append(
+                        CircleResult(
+                            hole_id=1,
+                            center_x=cx,
+                            center_y=cy,
+                            radius=radius,
+                            diameter_mm=diameter_mm,
+                            circularity=0.0,
+                            area_mm2=area_mm2,
+                            status=MeasureStatus.OK,
+                        )
+                    )
+                    ratio_tag = f"{ratio:.0f}×" if ratio < float("inf") else "only in range"
+                    logger.info(
+                        f"Circle #1 [dominant]: D={diameter_mm:.3f}mm (r={radius:.0f}px) | "
+                        f"area={top_a:.0f}px² ({ratio_tag} second) | center=({cx:.0f},{cy:.0f})"
+                    )
+                    logger.info(f"Detected 1 circle(s) from {len(contours)} contours [dominant path]")
+                    return circles
+
+        # ── Normal per-contour evaluation ─────────────────────────────────────
+        hole_id = 0
+        for contour, area in in_range:
             perimeter = cv2.arcLength(contour, True)
-
-            # Skip if perimeter is too small
             if perimeter < 1:
-                continue
-
-            # Skip if area is out of range
-            if area < self._min_area_px or area > self._max_area_px:
-                logger.debug(
-                    f"Contour rejected: area={area:.0f}px² " f"(range: {self._min_area_px:.0f}-{self._max_area_px:.0f})"
-                )
-                rejected_area += 1
                 continue
 
             # Perimeter-based circularity: 4πA/P². Sensitive to jagged edges
@@ -185,18 +242,13 @@ class CircleDetector:
             # drops by ~2×. Used as a quality metric but NOT as the primary gate.
             circularity = 4 * math.pi * area / (perimeter**2)
 
-            # Fit minimum enclosing circle first so we can compute fill_ratio.
-            (cx, cy), radius = cv2.minEnclosingCircle(contour)
-
             # fill_ratio = contour_area / area of enclosing circle.
             # A blurry-but-circular blob still fills ~85-95% of its enclosing
             # circle regardless of edge jaggedness, making this blur-resistant.
+            (cx, cy), radius = cv2.minEnclosingCircle(contour)
             enclosing_area = math.pi * radius**2
             fill_ratio = area / enclosing_area if enclosing_area > 0 else 0.0
 
-            # Accept contour if it passes EITHER quality gate:
-            #   - circularity >= min_circularity  (sharp image, clean edges)
-            #   - fill_ratio  >= min_fill_ratio   (blurry image, jagged edges)
             circularity_ok = circularity >= self._config.min_circularity
             fill_ratio_ok = self._config.min_fill_ratio > 0 and fill_ratio >= self._config.min_fill_ratio
             if not circularity_ok and not fill_ratio_ok:
@@ -210,7 +262,6 @@ class CircleDetector:
                 rejected_circularity += 1
                 continue
 
-            # Check edge margin
             margin = self._config.edge_margin
             if (
                 cx - radius < margin
@@ -222,23 +273,21 @@ class CircleDetector:
                 rejected_edge += 1
                 continue
 
-            # Calculate measurements
             hole_id += 1
-            diameter_px = 2 * radius
-            diameter_mm = diameter_px * self._config.pixel_to_mm
+            diameter_mm = 2 * radius * self._config.pixel_to_mm
             area_mm2 = area * (self._config.pixel_to_mm**2)
-
-            circle = CircleResult(
-                hole_id=hole_id,
-                center_x=cx,
-                center_y=cy,
-                radius=radius,
-                diameter_mm=diameter_mm,
-                circularity=circularity,
-                area_mm2=area_mm2,
-                status=MeasureStatus.OK,
+            circles.append(
+                CircleResult(
+                    hole_id=hole_id,
+                    center_x=cx,
+                    center_y=cy,
+                    radius=radius,
+                    diameter_mm=diameter_mm,
+                    circularity=circularity,
+                    area_mm2=area_mm2,
+                    status=MeasureStatus.OK,
+                )
             )
-            circles.append(circle)
             logger.info(
                 f"Circle #{hole_id}: D={diameter_mm:.3f}mm (r={radius:.0f}px) | "
                 f"circularity={circularity:.3f}, fill_ratio={fill_ratio:.3f} | "
@@ -246,7 +295,7 @@ class CircleDetector:
             )
 
         if len(circles) == 0 and len(contours) > 0:
-            top_areas = sorted([cv2.contourArea(c) for c in contours], reverse=True)[:5]
+            top_areas = sorted([a for _, a in all_areas], reverse=True)[:5]
             logger.info(
                 f"Detected 0 circle(s) from {len(contours)} contours "
                 f"[rejected: area={rejected_area}, circularity={rejected_circularity}, edge={rejected_edge}] "
@@ -320,29 +369,36 @@ class CircleDetector:
                 height, width = frame.shape[:2]
                 margin = self._config.edge_margin
 
-                for i, (x, y, r) in enumerate(hough_circles[0]):
-                    # Check edge margin
+                # Sort by radius descending — boss is the largest circle; noise
+                # spots are small and already constrained by minRadius/maxRadius,
+                # but among multiple candidates the boss has the biggest radius.
+                candidates = sorted(hough_circles[0], key=lambda c: c[2], reverse=True)
+                for x, y, r in candidates:
                     if x - r < margin or x + r > width - margin or y - r < margin or y + r > height - margin:
                         logger.debug(f"Hough circle rejected: too close to edge")
                         continue
 
                     diameter_mm = 2 * r * self._config.pixel_to_mm
-                    area_mm2 = math.pi * (r**2) * (self._config.pixel_to_mm**2)
-
-                    circle = CircleResult(
-                        hole_id=len(circles) + 1,
-                        center_x=float(x),
-                        center_y=float(y),
-                        radius=float(r),
-                        diameter_mm=diameter_mm,
-                        circularity=0.95,  # Hough assumes good circularity
-                        area_mm2=area_mm2,
-                        status=MeasureStatus.OK,
+                    area_mm2 = math.pi * r**2 * self._config.pixel_to_mm**2
+                    circles.append(
+                        CircleResult(
+                            hole_id=1,
+                            center_x=float(x),
+                            center_y=float(y),
+                            radius=float(r),
+                            diameter_mm=diameter_mm,
+                            circularity=0.95,
+                            area_mm2=area_mm2,
+                            status=MeasureStatus.OK,
+                        )
                     )
-                    circles.append(circle)
-                    logger.debug(f"Hough circle detected: center=({x:.0f},{y:.0f}), r={r:.0f}px, d={diameter_mm:.3f}mm")
+                    logger.info(
+                        f"Hough circle: D={diameter_mm:.3f}mm (r={r:.0f}px) | "
+                        f"center=({x:.0f},{y:.0f}) | param1={param1}, param2={param2}"
+                    )
+                    break  # Take only the largest valid circle (boss)
 
                 if circles:
-                    break  # Found circles, stop trying other params
+                    break  # Found the boss; stop trying softer param sets
 
         return circles
