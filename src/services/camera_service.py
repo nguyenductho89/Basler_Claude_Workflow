@@ -345,22 +345,49 @@ class BaslerGigECamera:
             logger.error(f"Error grabbing frame: {e}")
             return None
 
+    def get_exposure_range(self) -> tuple:
+        """Get exposure range (min, max) in microseconds from camera hardware"""
+        if not self._camera or not self._is_connected:
+            return (35.0, 1_000_000.0)
+        try:
+            if hasattr(self._camera, "ExposureTimeAbs"):
+                return (self._camera.ExposureTimeAbs.GetMin(), self._camera.ExposureTimeAbs.GetMax())
+            elif hasattr(self._camera, "ExposureTime"):
+                return (self._camera.ExposureTime.GetMin(), self._camera.ExposureTime.GetMax())
+        except Exception as e:
+            logger.warning(f"Failed to get exposure range: {e}")
+        return (35.0, 1_000_000.0)
+
     def set_exposure(self, exposure_us: float) -> None:
         """
         Set exposure time
 
         Args:
-            exposure_us: Exposure time in microseconds
+            exposure_us: Exposure time in microseconds (clamped to camera hardware limits)
         """
         if not self._camera or not self._is_connected:
             return
 
         try:
             if hasattr(self._camera, "ExposureTimeAbs"):
-                self._camera.ExposureTimeAbs.SetValue(exposure_us)
+                min_exp = self._camera.ExposureTimeAbs.GetMin()
+                max_exp = self._camera.ExposureTimeAbs.GetMax()
+                clamped = max(min_exp, min(max_exp, exposure_us))
+                if clamped != exposure_us:
+                    logger.warning(
+                        f"Exposure {exposure_us}us out of range [{min_exp}, {max_exp}], clamped to {clamped}us"
+                    )
+                self._camera.ExposureTimeAbs.SetValue(clamped)
             elif hasattr(self._camera, "ExposureTime"):
-                self._camera.ExposureTime.SetValue(exposure_us)
-            logger.info(f"Exposure set to {exposure_us}us")
+                min_exp = self._camera.ExposureTime.GetMin()
+                max_exp = self._camera.ExposureTime.GetMax()
+                clamped = max(min_exp, min(max_exp, exposure_us))
+                if clamped != exposure_us:
+                    logger.warning(
+                        f"Exposure {exposure_us}us out of range [{min_exp}, {max_exp}], clamped to {clamped}us"
+                    )
+                self._camera.ExposureTime.SetValue(clamped)
+            logger.info(f"Exposure set to {clamped}us")
         except Exception as e:
             logger.error(f"Failed to set exposure: {e}")
 

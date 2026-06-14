@@ -9,20 +9,30 @@ class DetectionConfig:
     """Configuration for circle detection"""
 
     pixel_to_mm: float = 0.00644  # mm per pixel (based on FOV calculation)
-    min_diameter_mm: float = 5.0
-    max_diameter_mm: float = 25.0
+    min_diameter_mm: float = 3.0
+    max_diameter_mm: float = 20.0
     min_circularity: float = 0.75
-    blur_kernel: int = 11
+    # fill_ratio = contour_area / enclosing_circle_area. Unlike perimeter-based
+    # circularity, this is immune to jagged edges caused by blur or noise —
+    # a blurry-but-circular blob still fills ~90% of its enclosing circle.
+    # Set to 0.0 to disable (use circularity only).
+    min_fill_ratio: float = 0.65
+    blur_kernel: int = 31
     edge_margin: int = 10
     # Thresholding method:
     #   "otsu"     – bright features on dark background (backlit through-holes)
     #   "otsu_inv" – dark features on bright background (reflected coaxial/ring
     #                light on shiny metal; boss/countersink detection)
     #   "adaptive" – uneven lighting across FOV
-    threshold_method: str = "otsu_inv"
+    threshold_method: str = "otsu"
     # Morphological closing kernel (px) applied after threshold to smooth
     # contour boundaries. 0 = disabled.
-    morph_close_kernel: int = 5
+    morph_close_kernel: int = 15
+    # After morph-close, flood-fill from the image border to find all background
+    # pixels, then fill enclosed holes in white regions.  Converts a closed ring
+    # (annulus) into a solid disk so contour-circularity → ~1.0.  Has no effect
+    # when the ring has un-bridged gaps (background still reaches the interior).
+    fill_holes: bool = True
     show_contours: bool = True
     show_diameter_line: bool = True
     show_label: bool = True

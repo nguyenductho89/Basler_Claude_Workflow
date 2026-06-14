@@ -62,12 +62,18 @@ class CircleDetector:
         # Preprocessing
         binary = self._preprocess(frame)
 
-        # Find and filter circles using the contour method. The circularity
-        # filter here is the system's defined gate for rejecting non-circular
-        # shapes, so we do not auto-fall back to the more lenient Hough method
-        # (which would accept ellipses). Call detect_with_hough() explicitly
-        # when ring/annulus detection is required.
         circles = self._find_circles(binary, frame.shape[:2])
+
+        if not circles:
+            # Ring-shaped features (boss edge lit by ring/coaxial light) often
+            # produce broken arc contours that fail circularity checks even when
+            # the ring is clearly visible.  Hough accumulates votes from partial
+            # arcs and can find the circle even when only 30-40% of the ring is
+            # present.
+            logger.info("Contour detection: 0 circles — trying Hough fallback")
+            circles = self.detect_with_hough(frame)
+            if circles:
+                logger.info(f"Hough fallback: found {len(circles)} circle(s)")
 
         return circles, binary
 
@@ -121,6 +127,17 @@ class CircleDetector:
             binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
             logger.debug(f"Preprocess: morphological close, kernel={k}")
 
+        if self._config.fill_holes:
+            # Flood-fill from (0,0) — always background for a centered part.
+            # Background pixels become white; enclosed holes (ring interior) stay
+            # black.  OR-ing with NOT(flooded) fills those holes → ring → solid disk.
+            h, w = binary.shape[:2]
+            temp = binary.copy()
+            flood_mask = np.zeros((h + 2, w + 2), np.uint8)
+            cv2.floodFill(temp, flood_mask, (0, 0), 255)
+            binary = cv2.bitwise_or(binary, cv2.bitwise_not(temp))
+            logger.debug("Preprocess: filled enclosed holes")
+
         return binary
 
     def _find_circles(self, binary: np.ndarray, image_shape: Tuple[int, int]) -> List[CircleResult]:
@@ -163,21 +180,35 @@ class CircleDetector:
                 rejected_area += 1
                 continue
 
-            # Calculate circularity
+            # Perimeter-based circularity: 4πA/P². Sensitive to jagged edges
+            # from blur — a blurry circle has ~40% excess perimeter → circularity
+            # drops by ~2×. Used as a quality metric but NOT as the primary gate.
             circularity = 4 * math.pi * area / (perimeter**2)
 
-            # Skip if not circular enough
-            if circularity < self._config.min_circularity:
+            # Fit minimum enclosing circle first so we can compute fill_ratio.
+            (cx, cy), radius = cv2.minEnclosingCircle(contour)
+
+            # fill_ratio = contour_area / area of enclosing circle.
+            # A blurry-but-circular blob still fills ~85-95% of its enclosing
+            # circle regardless of edge jaggedness, making this blur-resistant.
+            enclosing_area = math.pi * radius**2
+            fill_ratio = area / enclosing_area if enclosing_area > 0 else 0.0
+
+            # Accept contour if it passes EITHER quality gate:
+            #   - circularity >= min_circularity  (sharp image, clean edges)
+            #   - fill_ratio  >= min_fill_ratio   (blurry image, jagged edges)
+            circularity_ok = circularity >= self._config.min_circularity
+            fill_ratio_ok = self._config.min_fill_ratio > 0 and fill_ratio >= self._config.min_fill_ratio
+            if not circularity_ok and not fill_ratio_ok:
                 logger.info(
-                    f"Contour rejected circularity={circularity:.4f} "
-                    f"(need >={self._config.min_circularity}) | area={area:.0f}px², "
-                    f"perimeter={perimeter:.0f}px"
+                    f"Contour rejected: circularity={circularity:.4f} "
+                    f"(need >={self._config.min_circularity}), "
+                    f"fill_ratio={fill_ratio:.4f} "
+                    f"(need >={self._config.min_fill_ratio}) | "
+                    f"area={area:.0f}px², perimeter={perimeter:.0f}px"
                 )
                 rejected_circularity += 1
                 continue
-
-            # Fit minimum enclosing circle
-            (cx, cy), radius = cv2.minEnclosingCircle(contour)
 
             # Check edge margin
             margin = self._config.edge_margin
@@ -208,7 +239,11 @@ class CircleDetector:
                 status=MeasureStatus.OK,
             )
             circles.append(circle)
-            logger.debug(f"Circle detected: id={hole_id}, diameter={diameter_mm:.3f}mm, circularity={circularity:.3f}")
+            logger.info(
+                f"Circle #{hole_id}: D={diameter_mm:.3f}mm (r={radius:.0f}px) | "
+                f"circularity={circularity:.3f}, fill_ratio={fill_ratio:.3f} | "
+                f"center=({cx:.0f},{cy:.0f})"
+            )
 
         if len(circles) == 0 and len(contours) > 0:
             top_areas = sorted([cv2.contourArea(c) for c in contours], reverse=True)[:5]
@@ -239,17 +274,14 @@ class CircleDetector:
 
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) if len(frame.shape) == 3 else frame.copy()
 
-        # Use larger blur for Hough to reduce noise
         blur_size = self._config.blur_kernel
         if blur_size % 2 == 0:
             blur_size += 1
-        blurred = cv2.GaussianBlur(gray, (blur_size, blur_size), 2)
+        # sigma=0 → OpenCV computes sigma from ksize, giving a proper Gaussian
+        blurred = cv2.GaussianBlur(gray, (blur_size, blur_size), 0)
 
-        # Calculate radius range in pixels
         min_radius = int((self._config.min_diameter_mm / 2) / self._config.pixel_to_mm)
         max_radius = int((self._config.max_diameter_mm / 2) / self._config.pixel_to_mm)
-
-        # Ensure valid range
         min_radius = max(5, min_radius)
         max_radius = max(min_radius + 10, max_radius)
 
@@ -260,19 +292,22 @@ class CircleDetector:
 
         circles: List[CircleResult] = []
 
-        # Try multiple parameter combinations for better detection
+        # param1 = Canny high threshold (lower → more edges counted as ring)
+        # param2 = accumulator votes needed (lower → easier to detect, more false positives)
+        # dp=1 gives full-resolution accumulator — important for large radii (>500px)
+        # where dp=1.2 can skip the true radius in the quantised accumulator.
         param_sets = [
-            (50, 30),  # Default
-            (100, 30),  # Higher edge threshold
-            (50, 20),  # Lower accumulator threshold (more sensitive)
-            (80, 25),  # Balanced
+            (100, 50),  # Strong edges, high confidence — ideal for clean ring
+            (80, 40),  # Medium sensitivity
+            (60, 30),  # Permissive — catches fragmented rings
+            (40, 20),  # Highly permissive — fallback for broken arcs
         ]
 
         for param1, param2 in param_sets:
             hough_circles = cv2.HoughCircles(
                 blurred,
                 cv2.HOUGH_GRADIENT,
-                dp=1.2,  # Slightly lower resolution for speed
+                dp=1,
                 minDist=min_radius * 2,
                 param1=param1,
                 param2=param2,

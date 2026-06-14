@@ -34,8 +34,12 @@ class Recipe:
                 "min_diameter_mm": self.detection_config.min_diameter_mm,
                 "max_diameter_mm": self.detection_config.max_diameter_mm,
                 "min_circularity": self.detection_config.min_circularity,
+                "min_fill_ratio": self.detection_config.min_fill_ratio,
                 "blur_kernel": self.detection_config.blur_kernel,
                 "edge_margin": self.detection_config.edge_margin,
+                "threshold_method": self.detection_config.threshold_method,
+                "morph_close_kernel": self.detection_config.morph_close_kernel,
+                "fill_holes": self.detection_config.fill_holes,
                 "show_contours": self.detection_config.show_contours,
                 "show_diameter_line": self.detection_config.show_diameter_line,
                 "show_label": self.detection_config.show_label,
@@ -53,16 +57,21 @@ class Recipe:
         detection_data = data.get("detection", {})
         tolerance_data = data.get("tolerance", {})
 
+        dc = DetectionConfig()  # pull defaults from dataclass
         detection_config = DetectionConfig(
-            pixel_to_mm=detection_data.get("pixel_to_mm", 0.00644),
-            min_diameter_mm=detection_data.get("min_diameter_mm", 1.0),
-            max_diameter_mm=detection_data.get("max_diameter_mm", 20.0),
-            min_circularity=detection_data.get("min_circularity", 0.85),
-            blur_kernel=detection_data.get("blur_kernel", 5),
-            edge_margin=detection_data.get("edge_margin", 10),
-            show_contours=detection_data.get("show_contours", True),
-            show_diameter_line=detection_data.get("show_diameter_line", True),
-            show_label=detection_data.get("show_label", True),
+            pixel_to_mm=detection_data.get("pixel_to_mm", dc.pixel_to_mm),
+            min_diameter_mm=detection_data.get("min_diameter_mm", dc.min_diameter_mm),
+            max_diameter_mm=detection_data.get("max_diameter_mm", dc.max_diameter_mm),
+            min_circularity=detection_data.get("min_circularity", dc.min_circularity),
+            min_fill_ratio=detection_data.get("min_fill_ratio", dc.min_fill_ratio),
+            blur_kernel=detection_data.get("blur_kernel", dc.blur_kernel),
+            edge_margin=detection_data.get("edge_margin", dc.edge_margin),
+            threshold_method=detection_data.get("threshold_method", dc.threshold_method),
+            morph_close_kernel=detection_data.get("morph_close_kernel", dc.morph_close_kernel),
+            fill_holes=detection_data.get("fill_holes", dc.fill_holes),
+            show_contours=detection_data.get("show_contours", dc.show_contours),
+            show_diameter_line=detection_data.get("show_diameter_line", dc.show_diameter_line),
+            show_label=detection_data.get("show_label", dc.show_label),
         )
 
         tolerance_config = ToleranceConfig(
