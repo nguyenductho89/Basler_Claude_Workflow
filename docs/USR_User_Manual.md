@@ -148,13 +148,29 @@ Set via `Camera > Trigger Mode`
 
 ### 5.3 Detection Parameters
 
-| Parameter | Description | Range |
-|-----------|-------------|-------|
-| Min Diameter | Minimum circle size to detect | 1-100 mm |
-| Max Diameter | Maximum circle size to detect | 1-100 mm |
-| Min Circularity | Shape filter (1.0 = perfect circle) | 0.7-1.0 |
-| Binary Threshold | Image threshold for edge detection | 0-255 |
-| Blur Size | Gaussian blur kernel size | 3-15 |
+| Parameter | Description | Default | Range |
+|-----------|-------------|---------|-------|
+| Min Diameter | Minimum circle size to detect | 3.0 mm | 1-100 mm |
+| Max Diameter | Maximum circle size to detect | 20.0 mm | 1-100 mm |
+| Min Circularity | Shape filter (1.0 = perfect circle) | 0.75 | 0.5-1.0 |
+| Min Fill Ratio | Area fill filter (A/πr²) | 0.65 | 0.0 (off) - 1.0 |
+| Blur Size | Gaussian blur kernel size | 31 | odd: 3-63 |
+| Threshold Method | Binary threshold algorithm | otsu | otsu / otsu_inv / adaptive |
+| Morph Close | Morphological closing kernel (px) | 15 | 0 (off) - 21 |
+| Fill Holes | Convert rings to disks before detection | True | True/False |
+| Dominant Ratio | Area ratio to bypass shape checks | 5.0 | 0 (off) - ∞ |
+
+**Threshold method guide:**
+| Setting | Use when |
+|---------|----------|
+| `otsu` | Part has through-holes lit from behind (backlight) |
+| `otsu_inv` | Part illuminated from above with ring/coaxial light (boss, countersink) |
+| `adaptive` | Lighting is uneven across the image |
+
+**Speed nut / boss detection recommended settings:**
+- `threshold_method = otsu_inv`, `blur_kernel = 31`, `morph_close_kernel = 15`
+- `fill_holes = True`, `dominant_ratio = 5.0`, `min_circularity = 0.75`
+- `min_diameter_mm = 3.0`, `max_diameter_mm = 20.0`
 
 ### 5.4 Tolerance Settings
 
@@ -1071,5 +1087,5 @@ A: Yes. Click "Export CSV" button to download statistics.
 
 ---
 
-*Document Version: 2.1.0*
-*Last Updated: December 2024*
+*Document Version: 2.2.0*
+*Last Updated: 2026-06-14*

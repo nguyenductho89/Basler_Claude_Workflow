@@ -16,6 +16,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.2.0] - 2026-06-14
+
+### Added
+- **Three-Layer Boss Detection Pipeline** for U-shaped Carbon Steel Spring Clip Nuts (speed nuts)
+  - **Layer 1 – Dominant Candidate**: When the largest in-range contour is ≥ `dominant_ratio` (default 5.0×) the second-largest, it is accepted as the boss without circularity or fill_ratio checks. Radius is measured via a **distance histogram** on boundary points (modal distance from centroid) — immune to noise protrusions that inflate `minEnclosingCircle`.
+  - **Layer 2 – fill_holes + normal path**: Flood-fill from the image border to find background pixels, then OR to convert closed annular rings into solid disks; standard circularity + fill_ratio checks then succeed.
+  - **Layer 3 – Hough fallback**: When contour detection finds 0 circles, `detect_with_hough()` is called with `HOUGH_GRADIENT`, `dp=1`, param sets `[(100,50),(80,40),(60,30),(40,20)]`. Selects the largest valid circle (boss) and stops.
+
+- **New `DetectionConfig` fields**:
+  - `fill_holes: bool = True` — flood-fill preprocessing to convert ring→disk
+  - `dominant_ratio: float = 5.0` — area ratio threshold for dominant candidate path
+  - `min_fill_ratio: float = 0.65` — `contour_area / (π × enclosing_radius²)`; blur-resistant complement to perimeter circularity
+
+- **Camera exposure clamping** in `CameraService.set_exposure()`: clamps to hardware min (35µs on acA4600-7gc) to prevent `OutOfRangeException`. Added `get_exposure_range()` method.
+
+- **Visualizer label scaling** for 14MP→800×600 display (scale ≈ 0.17×):
+  - Circle edge thickness: 2→8px; diameter line thickness: 1→5px; center dot radius: 3→15px
+  - Label `font_scale`: 0.5→4.0 (~80px source → ~14px on canvas); thickness: 1→5
+  - Statistics `font_scale`: 0.6→2.5; `line_height`: 25→80px
+
+- **Recipe serialization** of new `DetectionConfig` fields (`fill_holes`, `min_fill_ratio`) with backward-compatible `from_dict()` using `DetectionConfig()` defaults.
+
+- **Calibration updated**: `pixel_to_mm = 0.0064516129032258064` (1550px = 10mm reference; acA4600-7gc + HK-YC10-80H @ WD=228mm).
+
+### Changed
+- `DetectionConfig` defaults updated for 14MP speed nut detection:
+  - `min_diameter_mm`: 5.0 → 3.0mm
+  - `max_diameter_mm`: 25.0 → 20.0mm
+  - `min_circularity`: 0.85 → 0.75
+  - `blur_kernel`: 5 → 31
+  - `morph_close_kernel`: 5 → 15
+
+### Fixed
+- Boss outer diameter (~13.2mm) rejected by area filter when `max_diameter_mm` default was too small — fixed by updating default to 20.0mm
+- Boss with fragmented ring contour (circularity ≈ 0.07, fill_ratio ≈ 0.47 from zinc specular reflections) now detected via dominant candidate path
+- `minEnclosingCircle` overestimating boss radius by ~4mm due to noise protrusions — fixed by distance histogram radius measurement
+
+---
+
 ## [2.1.0] - 2024-12-27
 
 ### Added

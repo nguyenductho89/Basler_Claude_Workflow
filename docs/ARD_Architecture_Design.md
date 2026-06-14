@@ -1732,9 +1732,85 @@ minEnclosingCircle() → diameter_mm = 2r × pixel_to_mm
 
 ---
 
-**Document Version:** 1.4
+---
+
+## 18. Three-Layer Boss Detection Pipeline (v2.2)
+
+### 18.1 Problem Statement
+
+Speed nuts (U-shaped Carbon Steel Spring Clip Nuts) have a drawn boss with a zinc-plated surface. Under ring/coaxial reflected light, the boss edge appears as a **partial bright ring** rather than a solid disk:
+
+| Metric | Expected | Observed | Cause |
+|--------|----------|----------|-------|
+| Circularity | ~0.90 | 0.07–0.10 | Broken arc contours (perimeter 3.8× expected) |
+| fill_ratio | ~0.85 | 0.47 | Annular ring, not solid disk |
+| Detection | Found | Rejected | Both shape checks fail |
+
+### 18.2 Pipeline Architecture
+
+```
+Input frame
+     │
+     ▼
+_preprocess()
+  GaussianBlur (kernel=31)
+  Threshold (otsu/otsu_inv/adaptive)
+  MorphClose (kernel=15)
+  fill_holes: flood-fill background from border → OR → ring becomes disk
+     │
+     ▼
+_find_circles() — three layers:
+  ┌──────────────────────────────────────────────────┐
+  │ Layer 1: DOMINANT CANDIDATE                       │
+  │ top_area / second_area ≥ dominant_ratio (5.0)?    │
+  │   YES → accept; measure radius via distance       │
+  │          histogram (modal dist centroid→boundary) │
+  │                                                   │
+  │ Layer 2: NORMAL PATH                              │
+  │ For each contour: circularity ≥ 0.75              │
+  │                   fill_ratio ≥ 0.65               │
+  │                   not touching edge margin        │
+  │   → measure via minEnclosingCircle                │
+  └──────────────────────────────────────────────────┘
+     │ 0 circles?
+     ▼
+detect_with_hough()
+  Layer 3: HOUGH FALLBACK
+  HOUGH_GRADIENT, dp=1
+  param_sets = [(100,50),(80,40),(60,30),(40,20)]
+  Select largest valid circle = boss
+```
+
+### 18.3 Updated DetectionConfig Defaults (v2.2)
+
+| Field | v2.1 | v2.2 | Notes |
+|-------|------|------|-------|
+| `min_diameter_mm` | 5.0 | **3.0** | |
+| `max_diameter_mm` | 25.0 | **20.0** | |
+| `min_circularity` | 0.85 | **0.75** | |
+| `blur_kernel` | 5 | **31** | 14MP requires larger kernel |
+| `morph_close_kernel` | 5 | **15** | |
+| `min_fill_ratio` | — | **0.65** | NEW field |
+| `fill_holes` | — | **True** | NEW field |
+| `dominant_ratio` | — | **5.0** | NEW field |
+
+### 18.4 Visualizer Scaling for 14MP Display
+
+Display scale ≈ 0.17× (4608px → 800px canvas). Source-space draw parameters:
+
+| Element | Old | New | Display result |
+|---------|-----|-----|----------------|
+| Circle edge thickness | 2px | 8px | ~1.4px on canvas |
+| Diameter line thickness | 1px | 5px | ~0.9px |
+| Center dot radius | 3px | 15px | ~2.6px |
+| Label font_scale | 0.5 | 4.0 | ~14px on canvas |
+| Statistics font_scale | 0.6 | 2.5 | ~7px |
+
+---
+
+**Document Version:** 1.5
 **Created Date:** 2025-12-26
-**Last Updated:** 2026-06-12
+**Last Updated:** 2026-06-14
 **Author:** Development Team
 **Status:** Approved
 
@@ -1748,4 +1824,5 @@ minEnclosingCircle() → diameter_mm = 2r × pixel_to_mm
 | 1.1 | 2025-12-26 | Added PLC/IO Interface (6.4), Threading Model (9.3) |
 | 1.2 | 2025-12-27 | Added Sequence Diagrams, State Machines, Deployment Diagram, Security |
 | 1.3 | 2025-12-27 | Added Web Dashboard Architecture (Section 16), AppCore, WebSocket design |
-| 1.4 | 2026-06-12 | Thêm Section 17 (Part Analysis & Lighting Decision). Cập nhật DetectionConfig class với threshold_method + morph_close_kernel. Cập nhật Data Flow Diagram và Config Schema defaults theo reflected light setup. |
+| 1.4 | 2026-06-12 | Added Section 17 (Part Analysis & Lighting Decision). Updated DetectionConfig with threshold_method + morph_close_kernel. |
+| 1.5 | 2026-06-14 | Added Section 18: Three-Layer Boss Detection Pipeline. fill_holes, dominant_ratio, min_fill_ratio, distance histogram radius, Hough fallback. Updated DetectionConfig defaults (blur_kernel 5→31, morph_close_kernel 5→15, min_circularity 0.85→0.75). Visualizer scaling table for 14MP display. |

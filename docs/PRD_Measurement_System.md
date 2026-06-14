@@ -655,22 +655,32 @@ Tổng chiều cao từ băng tải đến camera: ~430mm
 
 ### 7.3 Tham Số Cấu Hình Phát Hiện Tự Động
 
-| Tham số | Mô tả | Giá trị hiện tại | Phạm vi |
+| Tham số | Mô tả | Giá trị mặc định | Phạm vi |
 |---------|-------|------------------|---------|
-| `min_diameter_mm` | Đường kính tối thiểu (mm) | **5.0** | 1.0 ~ 50 |
-| `max_diameter_mm` | Đường kính tối đa (mm) | **25.0** | 5.0 ~ 80 |
-| `min_circularity` | Độ tròn tối thiểu | **0.75** | 0.5 ~ 1.0 |
-| `blur_kernel` | Kích thước kernel blur | **11** | 3, 5, 7, 11, 15 |
-| `threshold_method` | Phương pháp threshold | **otsu_inv** | otsu / otsu_inv / adaptive |
-| `morph_close_kernel` | Kernel morphological closing (px) | **5** | 0 (tắt) ~ 21 |
+| `min_diameter_mm` | Đường kính tối thiểu (mm) | **3.0** | 1.0 ~ 50 |
+| `max_diameter_mm` | Đường kính tối đa (mm) | **20.0** | 5.0 ~ 80 |
+| `min_circularity` | Độ tròn tối thiểu (4π·A/P²) | **0.75** | 0.5 ~ 1.0 |
+| `min_fill_ratio` | Tỷ lệ lấp đầy tối thiểu (A/πr²) | **0.65** | 0.0 (tắt) ~ 1.0 |
+| `blur_kernel` | Kích thước kernel blur | **31** | lẻ: 3, 5, 11, 31 |
+| `threshold_method` | Phương pháp threshold | **otsu** | otsu / otsu_inv / adaptive |
+| `morph_close_kernel` | Kernel morphological closing (px) | **15** | 0 (tắt) ~ 21 |
+| `fill_holes` | Flood-fill ring→disk trước khi tìm contour | **True** | True / False |
+| `dominant_ratio` | Ratio diện tích để bỏ qua shape checks | **5.0** | 0/1 (tắt) ~ ∞ |
 | `edge_margin` | Khoảng cách tối thiểu từ biên ảnh (px) | 10 | 5 ~ 50 |
 
 **Giải thích threshold_method:**
 | Giá trị | Khi dùng |
 |---------|----------|
-| `otsu_inv` | **Mặc định** — Reflected coaxial/ring light. Boss tối trên nền sáng. |
-| `otsu` | Backlit — Lỗ thông sáng trên nền tối (không áp dụng cho speed nut). |
+| `otsu` | Backlit — Lỗ thông sáng trên nền tối (chỉ dùng khi part có lỗ thông sáng). |
+| `otsu_inv` | Reflected coaxial/ring light — Boss tối trên nền sáng (cần thiết cho speed nut). |
 | `adaptive` | Ánh sáng không đều trên FOV. |
+
+**Giải thích ba lớp phát hiện (v2.2):**
+| Lớp | Điều kiện | Phương pháp đo bán kính |
+|-----|-----------|------------------------|
+| 1. Dominant candidate | `top_area / second_area ≥ dominant_ratio` | Distance histogram (modal) |
+| 2. Normal path (fill_holes) | `circularity ≥ 0.75` AND `fill_ratio ≥ 0.65` | `minEnclosingCircle` |
+| 3. Hough fallback | 0 circles từ contour path | `HoughCircles` (HOUGH_GRADIENT, dp=1) |
 
 ### 7.4 Công Thức Tính Circularity (Độ Tròn)
 
@@ -1327,7 +1337,7 @@ Bảng mã lỗi chuẩn hóa cho hệ thống.
 
 **Document Version:** 2.6
 **Created Date:** 2025-12-26
-**Last Updated:** 2026-06-12
+**Last Updated:** 2026-06-14
 **Author:** Development Team
 **Status:** Approved
 
@@ -1347,4 +1357,5 @@ Bảng mã lỗi chuẩn hóa cho hệ thống.
 | 2.3 | 2025-12-27 | Added Acceptance Criteria, Sprint Status, Error Codes |
 | 2.4 | 2025-12-27 | Added US-12 Web Dashboard, F10 Web Dashboard, NFR 5.5 Web Performance, Sprint 9-10 |
 | 2.5 | 2026-06-12 | Synced status with code: Sprint 9-10 (Web Dashboard) ✅ Done, US-12 AC-12.1~12.6 ✅ Pass (Release 2.1 implemented) |
-| 2.6 | 2026-06-12 | Cập nhật hệ thống chiếu sáng: backlight → reflected coaxial/ring light sau khi phân tích cấu trúc speed nut. Thêm section 14.4 phân tích vật thể. Cập nhật tham số detection (otsu_inv, blur_kernel=11, morph_close_kernel=5, min_circularity=0.75). |
+| 2.6 | 2026-06-12 | Cập nhật hệ thống chiếu sáng: backlight → reflected coaxial/ring light. Thêm section 14.4 phân tích vật thể. |
+| 2.7 | 2026-06-14 | Cập nhật bảng tham số 7.3 theo code v2.2: min_diameter_mm 5.0→3.0, max_diameter_mm 25.0→20.0, blur_kernel 11→31, morph_close_kernel 5→15. Thêm trường mới: min_fill_ratio, fill_holes, dominant_ratio. Thêm bảng ba lớp phát hiện boss. |

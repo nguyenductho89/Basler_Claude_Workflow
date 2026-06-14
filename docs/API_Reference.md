@@ -1,6 +1,6 @@
 # API Reference - Circle Measurement System
 
-## Version: 2.1.0
+## Version: 2.2.0
 
 ---
 
@@ -50,13 +50,17 @@ Cấu hình tham số phát hiện vòng tròn.
 ```python
 @dataclass
 class DetectionConfig:
-    pixel_to_mm: float = 0.00644
-    min_diameter_mm: float = 1.0
+    pixel_to_mm: float = 0.00644       # mm per pixel
+    min_diameter_mm: float = 3.0
     max_diameter_mm: float = 20.0
-    min_circularity: float = 0.85
-    blur_kernel: int = 5
-    edge_margin: int = 10
-    binary_threshold: int = 0  # 0 = Otsu auto
+    min_circularity: float = 0.75      # 4π·Area/Perimeter²
+    min_fill_ratio: float = 0.65       # contour_area / (π·r_enclosing²)
+    blur_kernel: int = 31              # Gaussian blur kernel size
+    edge_margin: int = 10              # px from image border
+    threshold_method: str = "otsu"    # "otsu" | "otsu_inv" | "adaptive"
+    morph_close_kernel: int = 15       # px; 0 = disabled
+    fill_holes: bool = True            # flood-fill ring→disk before contour
+    dominant_ratio: float = 5.0       # area ratio to skip shape checks
     show_contours: bool = True
     show_diameter_line: bool = True
     show_label: bool = True
@@ -65,15 +69,31 @@ class DetectionConfig:
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `pixel_to_mm` | float | 0.00644 | Tỷ lệ chuyển đổi pixel → mm |
-| `min_diameter_mm` | float | 1.0 | Đường kính tối thiểu (mm) |
+| `min_diameter_mm` | float | 3.0 | Đường kính tối thiểu (mm) |
 | `max_diameter_mm` | float | 20.0 | Đường kính tối đa (mm) |
-| `min_circularity` | float | 0.85 | Độ tròn tối thiểu |
-| `blur_kernel` | int | 5 | Kích thước kernel Gaussian blur |
+| `min_circularity` | float | 0.75 | Độ tròn tối thiểu (4π·A/P²) |
+| `min_fill_ratio` | float | 0.65 | Tỷ lệ lấp đầy tối thiểu (A/πr²); 0.0 = tắt |
+| `blur_kernel` | int | 31 | Kích thước kernel Gaussian blur (phải lẻ) |
 | `edge_margin` | int | 10 | Margin từ biên ảnh (pixels) |
-| `binary_threshold` | int | 0 | Ngưỡng binary (0 = Otsu) |
+| `threshold_method` | str | "otsu" | `"otsu"` = backlit; `"otsu_inv"` = reflected; `"adaptive"` = uneven lighting |
+| `morph_close_kernel` | int | 15 | Morphological closing kernel (px); 0 = tắt |
+| `fill_holes` | bool | True | Flood-fill để lấp đầy lỗ trong vùng trắng (ring→disk) |
+| `dominant_ratio` | float | 5.0 | Khi top_area/second_area ≥ ratio, bỏ qua shape checks; 0/1 = tắt |
 | `show_contours` | bool | True | Hiển thị contours |
 | `show_diameter_line` | bool | True | Hiển thị đường kính |
 | `show_label` | bool | True | Hiển thị label |
+
+**threshold_method:**
+| Giá trị | Khi dùng |
+|---------|----------|
+| `"otsu"` | Backlit through-holes (lỗ sáng trên nền tối) |
+| `"otsu_inv"` | Reflected coaxial/ring light (boss tối trên nền sáng) |
+| `"adaptive"` | Ánh sáng không đều trên FOV |
+
+**Detection pipeline (ba lớp):**
+1. **Dominant candidate**: `top_area / second_area ≥ dominant_ratio` → accept, measure radius via distance histogram (modal dist from centroid to boundary points)
+2. **fill_holes + normal**: flood-fill makes ring→disk → circularity + fill_ratio checks pass
+3. **Hough fallback**: `detect_with_hough()` when 0 contour circles found
 
 ---
 
@@ -259,7 +279,8 @@ class BaslerGigECamera:
 | `start_grabbing()` | - | `None` | Bắt đầu grab liên tục |
 | `stop_grabbing()` | - | `None` | Dừng grab |
 | `grab_frame()` | - | `Optional[ndarray]` | Lấy 1 frame |
-| `set_exposure(exposure_us)` | `float` | `None` | Đặt exposure time |
+| `set_exposure(exposure_us)` | `float` | `None` | Đặt exposure time (clamped to hardware min 35µs) |
+| `get_exposure_range()` | - | `Tuple[float, float]` | Trả về (min_us, max_us) exposure range của camera |
 | `get_info()` | - | `Dict` | Thông tin camera |
 
 #### Properties
@@ -297,7 +318,7 @@ if camera.connect(device_index=0, exposure_us=50.0):
 
 ### 2.2 DetectorService
 
-Phát hiện và đo vòng tròn.
+Phát hiện và đo vòng tròn với pipeline ba lớp.
 
 ```python
 class CircleDetector:
@@ -311,8 +332,14 @@ class CircleDetector:
 
 | Method | Parameters | Returns | Description |
 |--------|------------|---------|-------------|
-| `detect(frame)` | `ndarray` | `List[CircleResult]` | Phát hiện circles |
-| `update_config(config)` | `DetectionConfig` | `None` | Cập nhật config |
+| `detect(frame)` | `ndarray` | `Tuple[List[CircleResult], ndarray]` | Phát hiện circles; trả về (circles, binary_image) |
+| `detect_with_hough(frame)` | `ndarray` | `List[CircleResult]` | Hough fallback (HOUGH_GRADIENT, dp=1) |
+| `update_config(config)` | `DetectionConfig` | `None` | Cập nhật config và pixel limits |
+
+**`detect()` pipeline:**
+1. `_preprocess()` → Grayscale → GaussianBlur → Threshold (otsu/otsu_inv/adaptive) → MorphClose → fill_holes
+2. `_find_circles()` → sort in-range contours by area → dominant candidate check → distance histogram radius
+3. Hough fallback nếu 0 circles từ contour path
 
 #### Properties
 
@@ -1298,5 +1325,5 @@ io_service.register_trigger_callback(lambda: print("Triggered!"))
 
 ---
 
-*Document Version: 2.1.0*
-*Last Updated: December 2024*
+*Document Version: 2.2.0*
+*Last Updated: 2026-06-14*
