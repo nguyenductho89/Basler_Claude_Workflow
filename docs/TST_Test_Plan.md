@@ -90,9 +90,14 @@ class TestDetectionConfig:
         """TC-DOM-001: Default config values"""
         config = DetectionConfig()
         assert config.pixel_to_mm == 0.00644
-        assert config.min_diameter_mm == 1.0
+        assert config.min_diameter_mm == 3.0
         assert config.max_diameter_mm == 20.0
-        assert config.min_circularity == 0.85
+        assert config.min_circularity == 0.75
+        assert config.min_fill_ratio == 0.65
+        assert config.blur_kernel == 31
+        assert config.morph_close_kernel == 15
+        assert config.fill_holes is True
+        assert config.dominant_ratio == 5.0
 
     def test_custom_values(self):
         """TC-DOM-002: Custom config values"""
@@ -228,6 +233,94 @@ class TestCircleDetector:
         cv2.ellipse(img, (320, 240), (80, 40), 0, 0, 360, (255, 255, 255), -1)
         circles = detector.detect(img)
         assert len(circles) == 0  # Ellipse should be filtered
+
+    def test_dominant_candidate_bypass_shape_checks(self, detector):
+        """TC-DET-006: Dominant candidate accepted without shape checks
+
+        When the largest contour is ≥ dominant_ratio × second largest,
+        it should be accepted even if circularity/fill_ratio are low.
+        """
+        # Create image with a large solid disk (dominant) and tiny noise
+        img = np.zeros((1000, 1000, 3), dtype=np.uint8)
+        cv2.circle(img, (500, 500), 200, (255, 255, 255), -1)   # Large: ~125600 px²
+        cv2.circle(img, (100, 100), 5, (255, 255, 255), -1)     # Tiny: ~78 px²
+        # Ratio ~1611× >> dominant_ratio=5.0 → should detect dominant
+        detector.update_config(DetectionConfig(
+            dominant_ratio=5.0,
+            min_diameter_mm=1.0,
+            max_diameter_mm=50.0,
+        ))
+        circles, _ = detector.detect(img)
+        assert len(circles) == 1
+        assert circles[0].diameter_mm > 0
+
+    def test_hough_fallback_detects_partial_ring(self, detector):
+        """TC-DET-007: Hough fallback detects ring when contour fails
+
+        Simulates a ring (boss edge) — contour will be annular with
+        poor circularity; Hough should still find the circle.
+        """
+        img = np.zeros((600, 600, 3), dtype=np.uint8)
+        cv2.circle(img, (300, 300), 150, (255, 255, 255), 8)  # Ring, not filled
+        detector.update_config(DetectionConfig(
+            fill_holes=False,          # disable fill_holes so contour path fails
+            min_circularity=0.95,      # set high to force contour path to fail
+            min_fill_ratio=0.95,
+            dominant_ratio=0.0,        # disable dominant candidate
+            min_diameter_mm=1.0,
+            max_diameter_mm=100.0,
+        ))
+        circles, _ = detector.detect(img)
+        # Hough fallback should have been triggered and found the circle
+        assert len(circles) == 1
+
+    def test_fill_holes_converts_ring_to_disk(self, detector):
+        """TC-DET-008: fill_holes preprocessing makes ring detectable as disk"""
+        img = np.zeros((600, 600, 3), dtype=np.uint8)
+        # Draw a closed ring (annulus)
+        cv2.circle(img, (300, 300), 150, (255, 255, 255), -1)   # outer disk
+        cv2.circle(img, (300, 300), 100, (0, 0, 0), -1)         # inner hole → ring
+        detector.update_config(DetectionConfig(
+            fill_holes=True,
+            dominant_ratio=0.0,         # disable dominant candidate
+            min_circularity=0.80,
+            min_fill_ratio=0.60,
+            min_diameter_mm=1.0,
+            max_diameter_mm=100.0,
+        ))
+        circles, _ = detector.detect(img)
+        # fill_holes should fill the hole, making it a solid disk → detected
+        assert len(circles) == 1
+
+    def test_recipe_serialization_new_fields(self):
+        """TC-DET-009: Recipe serialization round-trips new v2.2 fields"""
+        dc = DetectionConfig(fill_holes=False, dominant_ratio=8.0, min_fill_ratio=0.70)
+        recipe = Recipe(name="V22Test", detection_config=dc)
+        data = recipe.to_dict()
+
+        loaded = Recipe.from_dict(data)
+        assert loaded.detection_config.fill_holes is False
+        assert loaded.detection_config.dominant_ratio == 8.0
+        assert loaded.detection_config.min_fill_ratio == 0.70
+
+    def test_recipe_backward_compat_missing_new_fields(self):
+        """TC-DET-010: Old recipe without v2.2 fields loads with defaults"""
+        old_data = {
+            "name": "OldRecipe",
+            "detection": {
+                "pixel_to_mm": 0.00644,
+                "min_diameter_mm": 5.0,
+                "max_diameter_mm": 20.0,
+                "min_circularity": 0.85,
+                # fill_holes, dominant_ratio, min_fill_ratio ABSENT
+            },
+            "tolerance": {"enabled": False, "nominal_mm": 10.0, "tolerance_mm": 0.05},
+        }
+        recipe = Recipe.from_dict(old_data)
+        dc = DetectionConfig()
+        assert recipe.detection_config.fill_holes == dc.fill_holes
+        assert recipe.detection_config.dominant_ratio == dc.dominant_ratio
+        assert recipe.detection_config.min_fill_ratio == dc.min_fill_ratio
 ```
 
 #### 3.2.2 Test: CalibrationService
@@ -476,6 +569,25 @@ class TestBaslerGigECamera:
         camera = BaslerGigECamera()
         frame = camera.grab_frame()
         assert frame is None
+
+    def test_get_exposure_range_not_connected(self):
+        """TC-CAM-006: get_exposure_range returns defaults when not connected"""
+        camera = BaslerGigECamera()
+        min_us, max_us = camera.get_exposure_range()
+        # Should return a sensible default range
+        assert min_us >= 0
+        assert max_us > min_us
+
+    def test_set_exposure_clamps_to_min(self):
+        """TC-CAM-007: set_exposure clamps to hardware minimum
+
+        acA4600-7gc minimum is 35µs — setting below must not raise.
+        """
+        camera = BaslerGigECamera()
+        # When not connected this is a no-op, but the method should not raise
+        camera.set_exposure(1.0)   # well below 35µs min
+        camera.set_exposure(35.0)  # exactly at min
+        camera.set_exposure(100.0) # normal value
 ```
 
 ---
@@ -753,6 +865,9 @@ class TestMemoryUsage:
 | ellipse.png | Ellipse (non-circle) | 0 | N/A |
 | low_contrast.png | Low contrast circles | 2 | 10.0, 15.0 |
 | noisy.png | Noisy image | 2 | 10.0, 12.0 |
+| boss_ring_complete.png | Speed nut boss: complete bright ring on dark bg (reflected light) | 1 | 13.2 |
+| boss_ring_fragmented.png | Speed nut boss: partial/broken ring (specular zinc) — tests dominant candidate + Hough | 1 | 13.2 |
+| boss_ring_annulus.png | Speed nut boss: closed annular ring — tests fill_holes path | 1 | 13.2 |
 
 ### 8.2 Test Fixtures Location
 ```

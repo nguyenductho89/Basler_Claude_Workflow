@@ -22,6 +22,9 @@ Vùng quan tâm trên ảnh. Camera có thể chỉ capture phần AOI để tă
 ### Blur (Gaussian Blur)
 Làm mờ Gaussian. Kỹ thuật làm mịn ảnh để giảm nhiễu trước khi xử lý.
 
+### Boss (Drawn Boss)
+Phần kim loại được dập nổi hình tròn (circular drawn boss) trên tấm kim loại phẳng. Trong speed nut / spring nut, boss có đường kính ngoài ~13.2mm và là feature cần đo. Khi chiếu sáng reflected, cạnh ngoài của boss tạo ra vòng sáng trên nền tối.
+
 ---
 
 ## C
@@ -47,6 +50,12 @@ Chuẩn gắn kết lens với camera. Thread: 1" diameter, 32 TPI, flange dista
 ### Debounce
 Chống rung. Kỹ thuật lọc tín hiệu để tránh trigger nhiều lần từ một sự kiện.
 
+### Distance Histogram Radius
+Phương pháp đo bán kính vòng tròn chính xác hơn `minEnclosingCircle` khi contour có nhiễu. Tính khoảng cách từ centroid đến mỗi điểm biên contour, vẽ histogram, lấy bin modal (mode) làm bán kính. Bin modal phản ánh nơi phần lớn điểm biên tập trung — tức là vị trí thực của cạnh boss — không bị ảnh hưởng bởi một vài điểm nhiễu xa nhất.
+
+### Dominant Candidate
+Ứng viên chi phối. Trong pipeline phát hiện boss, khi contour lớn nhất trong phạm vi diện tích có diện tích ≥ `dominant_ratio` × diện tích contour lớn thứ hai, nó được chấp nhận ngay lập tức mà không cần kiểm tra circularity hoặc fill_ratio. Điều này giải quyết trường hợp boss có ring fragmentation (circularity rất thấp) nhưng diện tích vẫn lớn hơn nhiễu rất nhiều (ví dụ: 85× lần).
+
 ### DOF (Depth of Field)
 Độ sâu trường ảnh. Khoảng cách trên trục Z mà vật thể vẫn còn trong focus.
 
@@ -69,6 +78,12 @@ Phát hiện biên. Kỹ thuật tìm ranh giới giữa các vùng khác biệt
 ---
 
 ## F
+
+### fill_holes
+Bước tiền xử lý sau morphological close: flood-fill từ pixel (0,0) — luôn là nền ảnh — để tìm tất cả pixel nền, rồi OR với binary image để lấp đầy các lỗ kín bên trong vùng trắng. Kết quả: vòng khuyên (annulus / ring) biến thành đĩa tròn đặc (solid disk), làm cho circularity và fill_ratio tăng lên gần 1.0. Không có tác dụng nếu ring bị vỡ (nền có thể tiếp cận interior).
+
+### fill_ratio
+Tỷ lệ lấp đầy. `fill_ratio = contour_area / (π × enclosing_radius²)`. Đo diện tích contour thực tế so với diện tích vòng tròn bao ngoài (minEnclosingCircle). Khác với `circularity` (dựa trên perimeter), fill_ratio không bị ảnh hưởng bởi biên răng cưa (jagged edges) do blur hoặc nhiễu — một blob tròn mờ vẫn có fill_ratio ≈ 0.85. Giá trị tốt: ≥ 0.65 (mặc định).
 
 ### FOV (Field of View)
 Trường nhìn. Kích thước vùng mà camera có thể quan sát được (mm × mm).
@@ -95,6 +110,9 @@ Generic Interface for Cameras. Chuẩn API thống nhất để điều khiển 
 
 ### Hardware Trigger
 Trigger phần cứng. Tín hiệu điện tử từ PLC/sensor để yêu cầu camera chụp ảnh.
+
+### Hough Transform / Hough Fallback
+Biến đổi Hough (HoughCircles). Thuật toán phát hiện vòng tròn bằng cách tích lũy vote trong không gian tham số (x, y, r). Ưu điểm: hoạt động tốt ngay cả khi chỉ có 30-40% cung tròn hiện diện (ring bị vỡ). Trong hệ thống này, HoughCircles được gọi như "Layer 3 fallback" khi contour detection không tìm được circle nào. Sử dụng `HOUGH_GRADIENT`, `dp=1` (full resolution) để đảm bảo độ chính xác bán kính lớn.
 
 ---
 
@@ -179,6 +197,15 @@ Python wrapper cho Pylon SDK.
 ### Recipe
 Công thức. Tập hợp các thông số cấu hình cho một loại sản phẩm cụ thể.
 
+### Reflected Light / Coaxial Light
+Ánh sáng phản xạ / đồng trục. Phương pháp chiếu sáng từ phía camera xuống vật thể, ánh sáng phản xạ từ bề mặt quay lại camera. Bề mặt phẳng phản xạ mạnh (sáng); bề mặt nghiêng (như thành boss) phản xạ yếu (tối). Phương pháp này phù hợp với speed nut vì boss edge tạo vòng tối rõ nét trên nền phẳng sáng. Đối diện với backlight (ánh sáng xuyên qua lỗ).
+
+### Ring Fragmentation
+Sự vỡ vụn của contour vòng. Khi boss edge bị chiếu bằng reflected ring light trên bề mặt mạ kẽm (zinc-plated), phản xạ đặc biệt (specular reflection) tạo ra điểm sáng không đồng đều — một số phần của vòng quá sáng, một số quá tối — khiến binary threshold cắt vòng thành nhiều cung ngắn. Mỗi cung là một contour riêng biệt với circularity rất thấp (~0.07). Ba lớp phát hiện boss được thiết kế để xử lý trường hợp này.
+
+### Rolling Shutter
+Màn trập cuộn. Loại sensor đọc từng dòng tuần tự (có thể gây biến dạng với vật di chuyển nhanh).
+
 ### Rolling Shutter
 Màn trập cuộn. Loại sensor đọc từng dòng tuần tự (có thể gây biến dạng với vật di chuyển nhanh).
 
@@ -191,6 +218,9 @@ Vùng quan tâm. Xem AOI.
 
 ### Sensor
 Cảm biến ảnh. Chip chuyển đổi ánh sáng thành tín hiệu điện (CCD hoặc CMOS).
+
+### Speed Nut / Spring Nut / Spring Clip Nut
+U-shaped Carbon Steel Spring Clip Nut. Đai ốc lò xo dập từ thép carbon, mạ kẽm (zinc-plated). Kích thước tổng ~22×16mm. Cấu tạo: tấm kim loại phẳng + boss tròn dập vào (~Ø13.2mm) + lỗ spring butterfly bên trong boss (hình bất quy tắc). Boss outer diameter là feature cần đo bằng hệ thống vision này. Không dùng backlight (butterfly không tròn), phải dùng reflected light.
 
 ### Software Trigger
 Trigger phần mềm. Lệnh từ phần mềm yêu cầu camera chụp ảnh.
@@ -271,5 +301,29 @@ ELSE NG
 
 ---
 
-*Document Version: 1.0*
-*Last Updated: December 2024*
+## Formulas (continued)
+
+### Distance Histogram Radius
+```
+dists = norm(boundary_points - centroid)
+hist, edges = histogram(dists, bins=max(50, (max-min)/5))
+radius = (edges[argmax(hist)] + edges[argmax(hist)+1]) / 2
+```
+
+### fill_ratio
+```
+fill_ratio = contour_area / (π × enclosing_radius²)
+```
+
+### Dominant candidate condition
+```
+IF top_contour_area / second_contour_area ≥ dominant_ratio THEN
+    accept without shape checks
+ELSE
+    apply circularity + fill_ratio filters
+```
+
+---
+
+*Document Version: 1.1*
+*Last Updated: 2026-06-14*
