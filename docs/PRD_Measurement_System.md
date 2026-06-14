@@ -9,7 +9,7 @@
 Xây dựng hệ thống kiểm tra chất lượng tự động (Automated Quality Inspection System) sử dụng công nghệ thị giác máy (Machine Vision) để đo kích thước lỗ tròn trên các chi tiết kim loại di chuyển trên băng tải công nghiệp.
 
 ### 1.2 Mục Tiêu
-- Đo chính xác đường kính lỗ tròn trên vật thể kim loại
+- Đo chính xác đường kính lỗ tròn trên vật thể kim loại. U-shaped Carbon Steel Spring Clip Nuts
 - Phát hiện lỗi kích thước nằm ngoài dung sai cho phép
 - Hoạt động liên tục 24/7 trong môi trường nhà máy
 - Tích hợp với hệ thống điều khiển sản xuất (PLC/SCADA)
